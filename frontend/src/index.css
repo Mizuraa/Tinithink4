@@ -1,0 +1,4 @@
+@import "tailwindcss";
+body {
+  @apply min-h-screen bg-gray-900;
+}
