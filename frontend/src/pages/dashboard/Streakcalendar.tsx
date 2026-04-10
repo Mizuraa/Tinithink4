@@ -1,13 +1,3 @@
-// StreakCalendar.tsx
-// Drop this anywhere — Dashboard, Profile, or its own page.
-//
-// DB SETUP (add to your migration SQL):
-//   ALTER TABLE users ADD COLUMN IF NOT EXISTS streak_days INTEGER NOT NULL DEFAULT 0;
-//   ALTER TABLE users ADD COLUMN IF NOT EXISTS last_play_date DATE;
-//   ALTER TABLE users ADD COLUMN IF NOT EXISTS claimed_streak_days INTEGER[] DEFAULT '{}';
-//
-// Call updateStreakOnLogin(userId) when user starts a game session to increment streak.
-
 import { useState, useEffect } from "react";
 import { supabase, getCurrentUser } from "../../lib/supabase";
 import { Flame, Gift, Check, Lock, X } from "lucide-react";

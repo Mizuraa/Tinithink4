@@ -67,12 +67,12 @@ const S = `
   .fc-btn.ghost{background:rgba(45,16,96,.3);border-color:#2d1060;color:#6b21a8}
   .fc-btn.sm{padding:6px 10px;font-size:8px}
   .fc-btn.w100{width:100%}
-  .flip-inner{position:relative;width:100%;height:100%;transition:transform .55s cubic-bezier(.4,0,.2,1);transform-style:preserve-3d}
+  .flip-inner{position:absolute;inset:0;transition:transform .55s cubic-bezier(.4,0,.2,1);transform-style:preserve-3d}
   .flip-inner.flipped{transform:rotateY(180deg)}
   .flip-face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden}
   .flip-back{transform:rotateY(180deg)}
-  .card-hover{transition:border-color .2s,transform .15s,box-shadow .2s}
-  .card-hover:hover{transform:translateY(-3px);box-shadow:0 6px 20px rgba(124,58,237,.15)}
+  .card-hover{transition:box-shadow .2s}
+  .card-hover:hover{box-shadow:0 6px 20px rgba(124,58,237,.35)}
   .toast{position:fixed;bottom:24px;right:24px;z-index:999;padding:10px 16px;border:2px solid;border-radius:0;font-family:'Press Start 2P',cursive;font-size:8px;animation:popIn .3s ease both;box-shadow:4px 4px 0 rgba(0,0,0,.4)}
   .toast.ok{background:rgba(20,83,45,.95);border-color:#22c55e;color:#86efac}
   .toast.err{background:rgba(127,29,29,.95);border-color:#ef4444;color:#fca5a5}
@@ -434,7 +434,7 @@ export default function Flashcard() {
               fontSize: 7,
               color: lm ? "#9ca3af" : "#3b1d6a",
               padding: "3px 7px",
-              border: `1px solid ${lm ? "#e2e8f0" : lm ? "#e2e8f0" : "#1a0a35"}`,
+              border: `1px solid ${lm ? "#e2e8f0" : "#1a0a35"}`,
             }}
           >
             {cards.length} TOTAL
@@ -685,7 +685,7 @@ export default function Flashcard() {
         style={{
           marginBottom: 14,
           background: lm ? "#ffffff" : "rgba(8,3,24,.7)",
-          border: `2px solid ${lm ? "#e2e8f0" : lm ? "#e2e8f0" : "#1a0a35"}`,
+          border: `2px solid ${lm ? "#e2e8f0" : "#1a0a35"}`,
           padding: "14px",
           animationDelay: ".06s",
         }}
@@ -1020,12 +1020,10 @@ function FlipCard({
 }) {
   const [flipped, setFlipped] = useState(false);
   const lm = useLightMode();
-  const ctx = [card.course, card.subject, card.grade_level, card.quarter]
-    .filter(Boolean)
-    .join(" › ");
+
   return (
     <div
-      className="fade-up"
+      className="fade-up card-hover"
       style={{
         height: 200,
         perspective: "1000px",
@@ -1060,11 +1058,11 @@ function FlipCard({
       <div
         className={`flip-inner${flipped ? " flipped" : ""}`}
         onClick={() => setFlipped((f) => !f)}
-        style={{ cursor: "pointer" }}
+        style={{ cursor: "pointer", position: "absolute", inset: 0 }}
       >
         {/* Front */}
         <div
-          className="flip-face card-hover"
+          className="flip-face"
           style={{
             background: "rgba(8,3,24,.92)",
             border: `2px solid ${selected ? "#7c3aed" : "#2d1060"}`,
@@ -1159,17 +1157,6 @@ function FlipCard({
             <div
               className="pf"
               style={{
-                fontSize: 6,
-                color: lm ? "#9ca3af" : "#2d1060",
-                marginBottom: 7,
-                textAlign: "center",
-              }}
-            >
-              {ctx}
-            </div>
-            <div
-              className="pf"
-              style={{
                 fontSize: 10,
                 color: lm ? "#1e0a40" : "#e9d5ff",
                 textAlign: "center",
@@ -1191,7 +1178,7 @@ function FlipCard({
             <div style={{ width: 4, height: 4, background: "#3b1d6a" }} />
             <span
               className="pf"
-              style={{ fontSize: 6, color: lm ? "#e2e8f0" : "#1a0a35" }}
+              style={{ fontSize: 6, color: lm ? "#e2e8f0" : "#FFFFFF" }}
             >
               TAP TO FLIP
             </span>
