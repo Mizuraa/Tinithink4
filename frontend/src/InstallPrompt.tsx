@@ -117,7 +117,6 @@ export default function InstallPrompt() {
           install this app.
         </p>
       ) : (
-        /* Android / Desktop install button */
         <button
           onClick={handleInstall}
           style={{
