@@ -20,16 +20,16 @@ export default defineConfig({
         theme_color: "#000000",
         background_color: "#000000",
         display: "standalone",
-        start_url: "https://tinithink.vercel.app/login",
+        start_url: "/login",
         icons: [
           {
-            src: "/logo.png",
+            src: "/logo-192.png",
             sizes: "192x192",
             type: "image/png",
             purpose: "any",
           },
           {
-            src: "/logo.png",
+            src: "/logo-512.png",
             sizes: "512x512",
             type: "image/png",
             purpose: "maskable",

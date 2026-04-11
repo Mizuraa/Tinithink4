@@ -7,11 +7,8 @@ import MyGames from "./pages/dashboard/MyGames";
 import Folder from "./pages/dashboard/Folder";
 import Flashcard from "./pages/dashboard/Flashcard";
 import GameRoom from "./pages/GameRoom";
+import InstallPrompt from "./InstallPrompt";
 
-// Blocks all routes from rendering until Supabase has restored
-// the session from localStorage. Without this, components mount
-// and call getCurrentUser() before the session exists, causing
-// all data loads to silently fail on reload / tab reopen.
 function AuthGate({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
 
@@ -129,6 +126,7 @@ export default function App() {
           <Route path="/" element={<Navigate to="/login" replace />} />
         </Routes>
       </BrowserRouter>
+      <InstallPrompt />
     </AuthGate>
   );
 }
