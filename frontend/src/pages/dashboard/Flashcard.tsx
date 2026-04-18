@@ -1101,13 +1101,13 @@ function StudyMode({
   const [finished, setFinished] = useState(false);
 
   const current = deck[index];
-  const progress = (index / deck.length) * 100;
+  const progress = ((index + 1) / deck.length) * 100;
 
   const goNext = useCallback(() => {
     if (index < deck.length - 1) {
       setIndex((i) => i + 1);
       setFlipped(false);
-    } else setFinished(true);
+    }
   }, [index, deck.length]);
 
   const goPrev = useCallback(() => {
@@ -1119,12 +1119,32 @@ function StudyMode({
 
   const handleKnewIt = () => {
     setKnown((prev) => new Set([...prev, current.id]));
-    goNext();
+    setLearning((prev) => {
+      const s = new Set(prev);
+      s.delete(current.id);
+      return s;
+    });
+    if (index < deck.length - 1) {
+      setIndex((i) => i + 1);
+      setFlipped(false);
+    } else {
+      setFinished(true);
+    }
   };
 
   const handleStillLearning = () => {
     setLearning((prev) => new Set([...prev, current.id]));
-    goNext();
+    setKnown((prev) => {
+      const s = new Set(prev);
+      s.delete(current.id);
+      return s;
+    });
+    if (index < deck.length - 1) {
+      setIndex((i) => i + 1);
+      setFlipped(false);
+    } else {
+      setFinished(true);
+    }
   };
 
   const handleShuffle = () => {
@@ -1332,8 +1352,7 @@ function StudyMode({
           {/* ── Card area ── */}
           <div className="study-card-wrap">
             <div
-              className="study-card"
-              style={{ transform: flipped ? "rotateY(180deg)" : "none" }}
+              className={`study-card${flipped ? " flipped" : ""}`}
               onClick={() => setFlipped((f) => !f)}
             >
               {/* Front */}
