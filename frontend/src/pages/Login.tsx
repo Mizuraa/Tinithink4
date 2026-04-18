@@ -26,6 +26,290 @@ function generateCaptcha(): CaptchaData {
   return { question: `${a} ${op} ${b} = ?`, answer };
 }
 
+// ── Terms Sections ─────────────────────────────────────────────────────────────
+const TERMS = [
+  {
+    num: "1.",
+    title: "ACCEPTANCE OF TERMS",
+    body: "By accessing and using this website, you agree to comply with and be bound by these Terms and Conditions. If you do not agree, please discontinue use immediately.",
+  },
+  {
+    num: "2.",
+    title: "USE OF THE WEBSITE",
+    body: "You agree to use this site only for lawful purposes and in a way that does not infringe the rights of, restrict, or inhibit anyone else's use and enjoyment of the site.",
+  },
+  {
+    num: "3.",
+    title: "INTELLECTUAL PROPERTY",
+    body: "All content, trademarks, and materials on this site are owned by or licensed to TINITHINK. You may not reproduce, distribute, or create derivative works without prior written consent.",
+  },
+  {
+    num: "4.",
+    title: "USER ACCOUNTS",
+    body: "If you create an account, you are responsible for maintaining the confidentiality of your login details and for all activities under your account.",
+  },
+  {
+    num: "5.",
+    title: "LIMITATION OF LIABILITY",
+    body: "We are not liable for any direct, indirect, incidental, or consequential damages arising from your use of this website.",
+  },
+  {
+    num: "6.",
+    title: "THIRD-PARTY LINKS",
+    body: "This site may contain links to third-party websites. We are not responsible for the content or practices of these external sites.",
+  },
+  {
+    num: "7.",
+    title: "CHANGES TO TERMS",
+    body: "We reserve the right to update or modify these Terms at any time without prior notice. Continued use of the site after changes means you accept the updated Terms.",
+  },
+  {
+    num: "8.",
+    title: "GOVERNING LAW",
+    body: "These Terms are governed by and construed in accordance with the laws of the Republic of the Philippines.",
+  },
+  {
+    num: "9.",
+    title: "CONTACT US",
+    body: "If you have any questions about these Terms, please contact us at support@tinithink.com.",
+  },
+];
+
+// ── Terms Modal ────────────────────────────────────────────────────────────────
+function TermsModal({
+  onClose,
+  onAccept,
+  accepted,
+}: {
+  onClose: () => void;
+  onAccept: () => void;
+  accepted: boolean;
+}) {
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 100,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16,
+        background: "rgba(4,1,14,0.88)",
+        backdropFilter: "blur(6px)",
+        animation: "fadeUp 0.25s ease both",
+      }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 400,
+          background: "rgba(8,3,24,0.97)",
+          border: "3px solid #7c3aed",
+          position: "relative",
+          boxShadow: "0 0 40px rgba(124,58,237,0.45), 8px 8px 0 #3b1d6a",
+          animation: "popIn 0.3s cubic-bezier(0.34,1.56,0.64,1) both",
+        }}
+      >
+        {/* Corner pixels */}
+        {[
+          { s: { top: 0, left: 0 }, c: "#a855f7" },
+          { s: { top: 0, right: 0 }, c: "#38bdf8" },
+          { s: { bottom: 0, left: 0 }, c: "#f472b6" },
+          { s: { bottom: 0, right: 0 }, c: "#a855f7" },
+        ].map((px, i) => (
+          <div
+            key={i}
+            style={{
+              position: "absolute",
+              width: 8,
+              height: 8,
+              background: px.c,
+              ...px.s,
+            }}
+          />
+        ))}
+
+        {/* Header */}
+        <div
+          style={{
+            padding: "16px 20px 12px",
+            borderBottom: "2px solid #2d1060",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 16 }}>📜</span>
+            <span
+              className="pf"
+              style={{ fontSize: 9, color: "#a855f7", letterSpacing: "0.1em" }}
+            >
+              TERMS &amp; CONDITIONS
+            </span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span className="pf" style={{ fontSize: 6, color: "#3b1d6a" }}>
+              2026
+            </span>
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                background: "rgba(124,58,237,0.15)",
+                border: "2px solid #3b1d6a",
+                color: "#7c3aed",
+                width: 24,
+                height: 24,
+                cursor: "pointer",
+                fontSize: 12,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                lineHeight: 1,
+                transition: "border-color 0.15s, color 0.15s",
+                borderRadius: 0,
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.borderColor =
+                  "#ef4444";
+                (e.currentTarget as HTMLButtonElement).style.color = "#ef4444";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.borderColor =
+                  "#3b1d6a";
+                (e.currentTarget as HTMLButtonElement).style.color = "#7c3aed";
+              }}
+              title="Close"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+
+        {/* Scrollable body */}
+        <div
+          style={{
+            maxHeight: 320,
+            overflowY: "auto",
+            padding: "16px 20px",
+            scrollbarWidth: "thin",
+            scrollbarColor: "#3b1d6a #0f0820",
+          }}
+        >
+          {TERMS.map((section) => (
+            <div key={section.num} style={{ marginBottom: 14 }}>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 6,
+                  marginBottom: 4,
+                  alignItems: "center",
+                }}
+              >
+                <span
+                  className="pf"
+                  style={{ fontSize: 7, color: "#7c3aed", flexShrink: 0 }}
+                >
+                  {section.num}
+                </span>
+                <span className="pf" style={{ fontSize: 7, color: "#c084fc" }}>
+                  {section.title}
+                </span>
+              </div>
+              <p
+                className="pf"
+                style={{
+                  fontSize: 6.5,
+                  color: "#6b21a8",
+                  lineHeight: 2.1,
+                  margin: 0,
+                  paddingLeft: 14,
+                }}
+              >
+                {section.body}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div
+          style={{
+            padding: "12px 20px 16px",
+            borderTop: "2px solid #2d1060",
+            display: "flex",
+            gap: 10,
+          }}
+        >
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              flex: 1,
+              padding: "11px 8px",
+              fontFamily: "'Press Start 2P', cursive",
+              fontSize: 8,
+              background: "transparent",
+              border: "2px solid #3b1d6a",
+              color: "#4c1d95",
+              cursor: "pointer",
+              borderRadius: 0,
+              transition: "border-color 0.15s, color 0.15s",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.borderColor =
+                "#7c3aed";
+              (e.currentTarget as HTMLButtonElement).style.color = "#a855f7";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.borderColor =
+                "#3b1d6a";
+              (e.currentTarget as HTMLButtonElement).style.color = "#4c1d95";
+            }}
+          >
+            CLOSE
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              onAccept();
+              onClose();
+            }}
+            style={{
+              flex: 2,
+              padding: "11px 8px",
+              fontFamily: "'Press Start 2P', cursive",
+              fontSize: 8,
+              background: accepted ? "rgba(20,83,45,0.4)" : "#7c3aed",
+              border: `2px solid ${accepted ? "#22c55e" : "#a855f7"}`,
+              color: accepted ? "#4ade80" : "#fff",
+              cursor: "pointer",
+              borderRadius: 0,
+              boxShadow: accepted
+                ? "0 0 10px rgba(34,197,94,0.3)"
+                : "0 0 10px rgba(168,85,247,0.3), 3px 3px 0 #4c1d95",
+              transition: "filter 0.15s",
+            }}
+            onMouseEnter={(e) =>
+              ((e.currentTarget as HTMLButtonElement).style.filter =
+                "brightness(1.15)")
+            }
+            onMouseLeave={(e) =>
+              ((e.currentTarget as HTMLButtonElement).style.filter = "none")
+            }
+          >
+            {accepted ? "✓ ACCEPTED" : "▶ ACCEPT"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Login Component ───────────────────────────────────────────────────────
 export default function Login() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
@@ -44,6 +328,7 @@ export default function Login() {
   const [captchaShake, setCaptchaShake] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -60,16 +345,6 @@ export default function Login() {
   function handleCaptchaChange(val: string) {
     setCaptchaInput(val);
     setCaptchaOk(parseInt(val, 10) === captchaData.answer);
-  }
-
-  function verifyCaptcha(): boolean {
-    if (!captchaOk) {
-      setCaptchaShake(true);
-      setTimeout(() => setCaptchaShake(false), 500);
-      setError("SOLVE THE CAPTCHA FIRST");
-      return false;
-    }
-    return true;
   }
 
   async function handleLogin() {
@@ -151,7 +426,7 @@ export default function Login() {
     refreshCaptcha();
   }
 
-  // ── Gate screen (CAPTCHA before login form) ──────────────────────────────
+  // ── Gate screen ──────────────────────────────────────────────────────────────
   if (!gateCleared) {
     return (
       <div
@@ -176,8 +451,7 @@ export default function Login() {
           @keyframes fadeUp   { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
           @keyframes shake    { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-5px)} 60%{transform:translateX(5px)} }
           @keyframes robotFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
-          @keyframes unlock   { 0%{transform:scale(1) rotate(0deg)} 30%{transform:scale(1.2) rotate(-8deg)} 60%{transform:scale(1.3) rotate(8deg)} 100%{transform:scale(1.1) rotate(0deg)} }
-          @keyframes slideOut { from{opacity:1;transform:translateY(0) scale(1)} to{opacity:0;transform:translateY(-24px) scale(0.94)} }
+          @keyframes popIn    { 0%{transform:scale(0.85);opacity:0} 60%{transform:scale(1.04)} 100%{transform:scale(1);opacity:1} }
           .gate-card   { animation: gateGlow 3s ease-in-out infinite; }
           .robot-float { animation: robotFloat 2.5s ease-in-out infinite; }
           .g-fadein    { animation: fadeUp 0.4s ease both; }
@@ -213,7 +487,6 @@ export default function Login() {
           .refresh-gate:hover { border-color: #7c3aed; color: #a855f7; }
         `}</style>
 
-        {/* BG stars */}
         <div
           style={{
             position: "fixed",
@@ -279,7 +552,6 @@ export default function Login() {
           ))}
         </div>
 
-        {/* Gate card */}
         <div
           style={{
             position: "relative",
@@ -288,7 +560,6 @@ export default function Login() {
             maxWidth: 360,
           }}
         >
-          {/* Logo above */}
           <div
             className="g-fadein"
             style={{ textAlign: "center", marginBottom: 24 }}
@@ -313,7 +584,7 @@ export default function Login() {
           </div>
 
           <div
-            className={`gate-card pb g-fadein g-d1`}
+            className="gate-card pb g-fadein g-d1"
             style={{
               background: "rgba(8,3,24,0.94)",
               border: "3px solid #7c3aed",
@@ -321,7 +592,6 @@ export default function Login() {
               overflow: "hidden",
             }}
           >
-            {/* Corner pixels */}
             {[
               ["top:0;left:0", "#a855f7"],
               ["top:0;right:0", "#38bdf8"],
@@ -341,9 +611,7 @@ export default function Login() {
                 }}
               />
             ))}
-
             <div style={{ padding: "28px 24px 32px" }}>
-              {/* Robot icon */}
               <div
                 className="robot-float g-fadein g-d1"
                 style={{
@@ -355,7 +623,6 @@ export default function Login() {
               >
                 🤖
               </div>
-
               <div
                 className="g-fadein g-d2"
                 style={{ textAlign: "center", marginBottom: 4 }}
@@ -379,8 +646,6 @@ export default function Login() {
                   PROVE YOU ARE HUMAN
                 </div>
               </div>
-
-              {/* Error msg */}
               {captchaShake && (
                 <div
                   className="pb g-shake"
@@ -403,10 +668,8 @@ export default function Login() {
                   </span>
                 </div>
               )}
-
-              {/* Math question */}
               <div
-                className={`g-fadein g-d3 pb`}
+                className="g-fadein g-d3 pb"
                 style={{
                   marginBottom: 18,
                   border: "2px solid #3b1d6a",
@@ -434,8 +697,6 @@ export default function Login() {
                     ↺
                   </button>
                 </div>
-
-                {/* Question display */}
                 <div style={{ textAlign: "center", marginBottom: 16 }}>
                   <div
                     className="pb"
@@ -459,8 +720,6 @@ export default function Login() {
                     </span>
                   </div>
                 </div>
-
-                {/* Answer row */}
                 <div
                   style={{
                     display: "flex",
@@ -484,8 +743,6 @@ export default function Login() {
                     autoFocus
                   />
                 </div>
-
-                {/* Progress dots */}
                 <div
                   style={{
                     display: "flex",
@@ -513,8 +770,6 @@ export default function Login() {
                   ))}
                 </div>
               </div>
-
-              {/* Enter button */}
               <button
                 type="button"
                 className="gate-btn"
@@ -523,7 +778,6 @@ export default function Login() {
               >
                 {captchaOk ? "▶ ENTER SITE" : "SOLVE TO CONTINUE"}
               </button>
-
               <div style={{ marginTop: 14, textAlign: "center" }}>
                 <span className="pf" style={{ fontSize: 7, color: "#1a0a35" }}>
                   THIS PROTECTS AGAINST BOTS & SPAM
@@ -545,6 +799,7 @@ export default function Login() {
     );
   }
 
+  // ── Login / Signup form ──────────────────────────────────────────────────────
   return (
     <div
       style={{
@@ -562,14 +817,10 @@ export default function Login() {
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
         .pf { font-family: 'Press Start 2P', cursive; }
         .pb { border-radius: 0; }
-
-        /* Animated background stars using CSS */
         @keyframes twinkle1 { 0%,100%{opacity:0.1} 50%{opacity:0.8} }
         @keyframes twinkle2 { 0%,100%{opacity:0.4} 60%{opacity:0.05} }
         @keyframes twinkle3 { 0%,100%{opacity:0.6} 40%{opacity:0.1} }
-        @keyframes drift  { 0%{transform:translateY(0)} 100%{transform:translateY(-100vh)} }
         @keyframes shootStar { 0%{transform:translateX(0) translateY(0);opacity:1} 100%{transform:translateX(200px) translateY(80px);opacity:0} }
-
         @keyframes glitch {
           0%,92%,100% { text-shadow: 0 0 16px #a855f7, 0 0 32px rgba(168,85,247,0.4); transform: none; }
           93% { text-shadow: 3px 0 #38bdf8, -3px 0 #f472b6; transform: translateX(-2px); }
@@ -585,108 +836,79 @@ export default function Login() {
         @keyframes popIn  { 0%{opacity:0;transform:scale(0.85)} 60%{transform:scale(1.04)} 100%{opacity:1;transform:scale(1)} }
         @keyframes scanMove { from{top:-10%} to{top:110%} }
         @keyframes pulse  { 0%,100%{opacity:1} 50%{opacity:0.4} }
+        @keyframes captchaShake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-5px)} 60%{transform:translateX(5px)} }
+        @keyframes captchaSuccess { 0%{transform:scale(0.9);opacity:0} 60%{transform:scale(1.04)} 100%{transform:scale(1);opacity:1} }
 
-        .logo-glitch { animation: glitch 5s ease-in-out infinite; }
-        .card-glow   { animation: cardGlow 3s ease-in-out infinite; }
-        .fade-up     { animation: fadeUp 0.45s ease both; }
+        .logo-glitch  { animation: glitch 5s ease-in-out infinite; }
+        .card-glow    { animation: cardGlow 3s ease-in-out infinite; }
+        .fade-up      { animation: fadeUp 0.45s ease both; }
         .d1 { animation-delay: 0.05s; }
         .d2 { animation-delay: 0.12s; }
         .d3 { animation-delay: 0.20s; }
         .d4 { animation-delay: 0.28s; }
         .d5 { animation-delay: 0.36s; }
         .d6 { animation-delay: 0.44s; }
-        .error-msg   { animation: shake 0.35s ease; }
-        .success-msg { animation: popIn 0.35s cubic-bezier(0.34,1.56,0.64,1) both; }
-        .scan-line   { animation: scanMove 6s linear infinite; }
+        .error-msg    { animation: shake 0.35s ease; }
+        .success-msg  { animation: popIn 0.35s cubic-bezier(0.34,1.56,0.64,1) both; }
+        .scan-line    { animation: scanMove 6s linear infinite; }
+        .captcha-shake   { animation: captchaShake 0.4s ease; }
+        .captcha-ok      { animation: captchaSuccess 0.3s cubic-bezier(0.34,1.56,0.64,1) both; }
 
         .login-input {
-          background: rgba(8,3,24,0.9);
-          border: 2px solid #2d1060;
-          color: #e9d5ff;
-          border-radius: 0;
-          width: 100%;
-          padding: 12px 14px;
-          font-family: 'Press Start 2P', cursive;
-          font-size: 10px;
-          outline: none;
-          transition: border-color 0.2s, box-shadow 0.2s;
-          box-sizing: border-box;
+          background: rgba(8,3,24,0.9); border: 2px solid #2d1060; color: #e9d5ff;
+          border-radius: 0; width: 100%; padding: 12px 14px;
+          font-family: 'Press Start 2P', cursive; font-size: 10px; outline: none;
+          transition: border-color 0.2s, box-shadow 0.2s; box-sizing: border-box;
         }
-        .login-input:focus {
-          border-color: #a855f7;
-          box-shadow: 0 0 10px rgba(168,85,247,0.3), inset 0 0 8px rgba(124,58,237,0.08);
-        }
+        .login-input:focus { border-color: #a855f7; box-shadow: 0 0 10px rgba(168,85,247,0.3), inset 0 0 8px rgba(124,58,237,0.08); }
         .login-input::placeholder { color: #3b1d6a; }
-        .login-input:-webkit-autofill {
-          -webkit-box-shadow: 0 0 0 100px #08030f inset !important;
-          -webkit-text-fill-color: #e9d5ff !important;
-        }
+        .login-input:-webkit-autofill { -webkit-box-shadow: 0 0 0 100px #08030f inset !important; -webkit-text-fill-color: #e9d5ff !important; }
 
         .tab-btn {
-          flex: 1;
-          padding: 12px 8px;
-          font-family: 'Press Start 2P', cursive;
-          font-size: 10px;
-          border: none;
-          cursor: pointer;
+          flex: 1; padding: 12px 8px; font-family: 'Press Start 2P', cursive;
+          font-size: 10px; border: none; cursor: pointer;
           transition: background 0.15s, color 0.15s;
         }
         .submit-btn {
-          width: 100%;
-          padding: 14px;
-          font-family: 'Press Start 2P', cursive;
-          font-size: 11px;
-          border-radius: 0;
-          cursor: pointer;
-          border: 2px solid #22d3ee;
-          background: #0e7490;
-          color: #fff;
+          width: 100%; padding: 14px; font-family: 'Press Start 2P', cursive;
+          font-size: 11px; border-radius: 0; cursor: pointer;
+          border: 2px solid #22d3ee; background: #0e7490; color: #fff;
           transition: filter 0.15s, transform 0.08s;
           box-shadow: 0 0 10px rgba(6,182,212,0.3), 4px 4px 0 #0e4d6a;
         }
-        .submit-btn:hover:not(:disabled) { filter: brightness(1.15); }
+        .submit-btn:hover:not(:disabled)  { filter: brightness(1.15); }
         .submit-btn:active:not(:disabled) { transform: translateY(1px); box-shadow: 0 0 6px rgba(6,182,212,0.2), 2px 2px 0 #0e4d6a; }
         .submit-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
-        .corner-px { position: absolute; width: 8px; height: 8px; }
-        /* CAPTCHA */
-        @keyframes captchaShake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-5px)} 60%{transform:translateX(5px)} }
-        @keyframes captchaSuccess { 0%{transform:scale(0.9);opacity:0} 60%{transform:scale(1.04)} 100%{transform:scale(1);opacity:1} }
-        .captcha-shake { animation: captchaShake 0.4s ease; }
-        .captcha-ok { animation: captchaSuccess 0.3s cubic-bezier(0.34,1.56,0.64,1) both; }
         .captcha-input {
-          background: rgba(8,3,24,0.9);
-          border: 2px solid #2d1060;
-          color: #e9d5ff;
-          border-radius: 0;
-          padding: 10px 12px;
-          font-family: 'Press Start 2P', cursive;
-          font-size: 11px;
-          outline: none;
-          width: 90px;
-          text-align: center;
-          transition: border-color 0.2s, box-shadow 0.2s;
-          box-sizing: border-box;
+          background: rgba(8,3,24,0.9); border: 2px solid #2d1060; color: #e9d5ff;
+          border-radius: 0; padding: 10px 12px;
+          font-family: 'Press Start 2P', cursive; font-size: 11px; outline: none;
+          width: 90px; text-align: center;
+          transition: border-color 0.2s, box-shadow 0.2s; box-sizing: border-box;
         }
         .captcha-input:focus { border-color: #a855f7; box-shadow: 0 0 8px rgba(168,85,247,0.3); }
-        .captcha-input.ok { border-color: #22c55e; box-shadow: 0 0 8px rgba(34,197,94,0.3); }
+        .captcha-input.ok  { border-color: #22c55e; box-shadow: 0 0 8px rgba(34,197,94,0.3); }
         .captcha-input.err { border-color: #ef4444; }
         .refresh-btn {
-          background: rgba(45,16,96,0.5);
-          border: 2px solid #3b1d6a;
-          color: #6b21a8;
-          border-radius: 0;
-          padding: 10px 10px;
-          cursor: pointer;
-          font-size: 14px;
-          transition: border-color 0.15s, color 0.15s;
-          line-height: 1;
+          background: rgba(45,16,96,0.5); border: 2px solid #3b1d6a; color: #6b21a8;
+          border-radius: 0; padding: 10px 10px; cursor: pointer; font-size: 14px;
+          transition: border-color 0.15s, color 0.15s; line-height: 1;
         }
         .refresh-btn:hover { border-color: #7c3aed; color: #a855f7; }
+        .corner-px { position: absolute; width: 8px; height: 8px; }
 
+        /* Terms button */
+        .terms-open-btn {
+          background: none; border: none; cursor: pointer; padding: 0;
+          font-family: 'Press Start 2P', cursive; font-size: 7px;
+          color: #38bdf8; text-decoration: underline;
+          transition: color 0.15s;
+        }
+        .terms-open-btn:hover { color: #7dd3fc; }
       `}</style>
 
-      {/* CSS star field — no canvas, no crash */}
+      {/* Background */}
       <div
         style={{
           position: "fixed",
@@ -696,7 +918,6 @@ export default function Login() {
           pointerEvents: "none",
         }}
       >
-        {/* Grid overlay */}
         <div
           style={{
             position: "absolute",
@@ -706,7 +927,6 @@ export default function Login() {
             backgroundSize: "40px 40px",
           }}
         />
-        {/* Glow blobs */}
         <div
           style={{
             position: "absolute",
@@ -717,7 +937,6 @@ export default function Login() {
             borderRadius: "50%",
             background:
               "radial-gradient(circle, rgba(124,58,237,0.12) 0%, transparent 70%)",
-            pointerEvents: "none",
           }}
         />
         <div
@@ -730,23 +949,8 @@ export default function Login() {
             borderRadius: "50%",
             background:
               "radial-gradient(circle, rgba(30,64,175,0.1) 0%, transparent 70%)",
-            pointerEvents: "none",
           }}
         />
-        <div
-          style={{
-            position: "absolute",
-            top: "60%",
-            left: "50%",
-            width: 200,
-            height: 200,
-            borderRadius: "50%",
-            background:
-              "radial-gradient(circle, rgba(109,40,217,0.08) 0%, transparent 70%)",
-            pointerEvents: "none",
-          }}
-        />
-        {/* Static pixel stars */}
         {[
           [8, 12, "#a855f7", "twinkle1 3.1s infinite"],
           [15, 35, "#38bdf8", "twinkle2 2.4s infinite"],
@@ -783,7 +987,6 @@ export default function Login() {
             }}
           />
         ))}
-        {/* Shooting star */}
         <div
           style={{
             position: "absolute",
@@ -824,6 +1027,15 @@ export default function Login() {
           pointerEvents: "none",
         }}
       />
+
+      {/* Terms Modal */}
+      {showTermsModal && (
+        <TermsModal
+          onClose={() => setShowTermsModal(false)}
+          onAccept={() => setTermsAccepted(true)}
+          accepted={termsAccepted}
+        />
+      )}
 
       {/* Card */}
       <div
@@ -872,7 +1084,6 @@ export default function Login() {
             backdropFilter: "blur(12px)",
           }}
         >
-          {/* Corner accents */}
           <div
             className="corner-px"
             style={{ top: 0, left: 0, background: "#a855f7" }}
@@ -924,7 +1135,7 @@ export default function Login() {
               </button>
             </div>
 
-            {/* Feedback messages */}
+            {/* Feedback */}
             {error && (
               <div
                 className="error-msg pb"
@@ -989,7 +1200,6 @@ export default function Login() {
                   />
                 </div>
               )}
-
               <div
                 className={`fade-up ${isLogin ? "d3" : "d4"}`}
                 style={{ marginBottom: 14 }}
@@ -1014,7 +1224,6 @@ export default function Login() {
                   autoComplete="email"
                 />
               </div>
-
               <div
                 className={`fade-up ${isLogin ? "d4" : "d5"}`}
                 style={{ marginBottom: 20 }}
@@ -1057,14 +1266,13 @@ export default function Login() {
                       padding: 0,
                     }}
                     tabIndex={-1}
-                    title={showPassword ? "Hide password" : "Show password"}
                   >
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
               </div>
 
-              {/* ── CAPTCHA ── */}
+              {/* CAPTCHA */}
               <div
                 className={`fade-up pb border-2 ${captchaShake ? "captcha-shake" : ""} ${captchaOk ? "captcha-ok" : ""}`}
                 style={{
@@ -1076,7 +1284,6 @@ export default function Login() {
                     : "rgba(45,16,96,0.2)",
                 }}
               >
-                {/* Label */}
                 <div
                   style={{
                     display: "flex",
@@ -1109,9 +1316,7 @@ export default function Login() {
                     ↺
                   </button>
                 </div>
-                {/* Question + input */}
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  {/* Question box */}
                   <div
                     className="pb"
                     style={{
@@ -1136,7 +1341,6 @@ export default function Login() {
                       {captchaData.question}
                     </span>
                   </div>
-                  {/* Answer input */}
                   <input
                     type="number"
                     value={captchaInput}
@@ -1147,7 +1351,6 @@ export default function Login() {
                     max={999}
                   />
                 </div>
-                {/* Dots indicator */}
                 <div
                   style={{
                     display: "flex",
@@ -1176,6 +1379,7 @@ export default function Login() {
                 </div>
               </div>
 
+              {/* Submit */}
               <div className={`fade-up ${isLogin ? "d5" : "d6"}`}>
                 <button
                   className="submit-btn"
@@ -1209,224 +1413,72 @@ export default function Login() {
                 </button>
               </div>
 
-              {/* ── Terms & Conditions — always visible ── */}
+              {/* ── Terms one-liner ── */}
               <div
                 className="fade-up"
                 style={{
-                  marginTop: 18,
-                  border: `2px solid ${termsAccepted ? "#22c55e" : "#2d1060"}`,
-                  background: termsAccepted
-                    ? "rgba(20,83,45,0.10)"
-                    : "rgba(45,16,96,0.12)",
-                  padding: "12px 14px",
-                  transition: "border-color 0.3s, background 0.3s",
+                  marginTop: 16,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
                 }}
               >
-                {/* Header */}
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    marginBottom: 10,
-                  }}
-                >
-                  <span style={{ fontSize: 12 }}>📜</span>
-                  <span
-                    className="pf"
-                    style={{
-                      fontSize: 7,
-                      color: "#7c3aed",
-                      letterSpacing: "0.1em",
-                    }}
-                  >
-                    TERMS &amp; CONDITIONS
-                  </span>
-                  <span
-                    className="pf"
-                    style={{
-                      fontSize: 6,
-                      color: "#3b1d6a",
-                      marginLeft: "auto",
-                    }}
-                  >
-                    LAST UPDATED: 2026
-                  </span>
-                </div>
-
-                {/* Scrollable full terms */}
-                <div
-                  style={{
-                    maxHeight: 130,
-                    overflowY: "auto",
-                    paddingRight: 6,
-                    scrollbarWidth: "thin",
-                    scrollbarColor: "#3b1d6a #0f0820",
-                    border: "1px solid #2d1060",
-                    background: "rgba(8,3,24,0.5)",
-                    padding: "10px 12px",
-                    marginBottom: 10,
-                  }}
-                >
-                  {[
-                    {
-                      num: "1.",
-                      title: "ACCEPTANCE OF TERMS",
-                      body: "By accessing and using this website, you agree to comply with and be bound by these Terms and Conditions. If you do not agree, please discontinue use immediately.",
-                    },
-                    {
-                      num: "2.",
-                      title: "USE OF THE WEBSITE",
-                      body: "You agree to use this site only for lawful purposes and in a way that does not infringe the rights of, restrict, or inhibit anyone else's use and enjoyment of the site.",
-                    },
-                    {
-                      num: "3.",
-                      title: "INTELLECTUAL PROPERTY",
-                      body: "All content, trademarks, and materials on this site are owned by or licensed to TINITHINK. You may not reproduce, distribute, or create derivative works without prior written consent.",
-                    },
-                    {
-                      num: "4.",
-                      title: "USER ACCOUNTS",
-                      body: "If you create an account, you are responsible for maintaining the confidentiality of your login details and for all activities under your account.",
-                    },
-                    {
-                      num: "5.",
-                      title: "LIMITATION OF LIABILITY",
-                      body: "We are not liable for any direct, indirect, incidental, or consequential damages arising from your use of this website.",
-                    },
-                    {
-                      num: "6.",
-                      title: "THIRD-PARTY LINKS",
-                      body: "This site may contain links to third-party websites. We are not responsible for the content or practices of these external sites.",
-                    },
-                    {
-                      num: "7.",
-                      title: "CHANGES TO TERMS",
-                      body: "We reserve the right to update or modify these Terms at any time without prior notice. Continued use of the site after changes means you accept the updated Terms.",
-                    },
-                    {
-                      num: "8.",
-                      title: "GOVERNING LAW",
-                      body: "These Terms are governed by and construed in accordance with the laws of the Republic of the Philippines.",
-                    },
-                    {
-                      num: "9.",
-                      title: "CONTACT US",
-                      body: "If you have any questions about these Terms, please contact us at support@tinithink.com.",
-                    },
-                  ].map((section) => (
-                    <div key={section.num} style={{ marginBottom: 10 }}>
-                      <div style={{ display: "flex", gap: 5, marginBottom: 3 }}>
-                        <span
-                          className="pf"
-                          style={{
-                            fontSize: 6.5,
-                            color: "#7c3aed",
-                            flexShrink: 0,
-                          }}
-                        >
-                          {section.num}
-                        </span>
-                        <span
-                          className="pf"
-                          style={{ fontSize: 6.5, color: "#a855f7" }}
-                        >
-                          {section.title}
-                        </span>
-                      </div>
-                      <p
-                        className="pf"
-                        style={{
-                          fontSize: 6.5,
-                          color: "#4c1d95",
-                          lineHeight: 2,
-                          margin: 0,
-                          paddingLeft: 12,
-                        }}
-                      >
-                        {section.body}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Checkbox row */}
+                {/* Pixel checkbox */}
                 <button
                   type="button"
                   onClick={() => setTermsAccepted((v) => !v)}
                   style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: 10,
-                    width: "100%",
-                    background: "none",
-                    border: "none",
+                    width: 14,
+                    height: 14,
+                    flexShrink: 0,
+                    border: `2px solid ${termsAccepted ? "#22c55e" : "#7c3aed"}`,
+                    background: termsAccepted ? "#14532d" : "transparent",
                     cursor: "pointer",
+                    borderRadius: 0,
                     padding: 0,
-                    textAlign: "left",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    boxShadow: termsAccepted
+                      ? "0 0 6px rgba(34,197,94,0.4)"
+                      : "none",
+                    transition: "border-color 0.2s, background 0.2s",
                   }}
+                  title={termsAccepted ? "Uncheck" : "Accept terms"}
                 >
-                  {/* Pixel-style checkbox */}
-                  <div
-                    style={{
-                      width: 14,
-                      height: 14,
-                      border: `2px solid ${termsAccepted ? "#22c55e" : "#7c3aed"}`,
-                      background: termsAccepted ? "#14532d" : "transparent",
-                      flexShrink: 0,
-                      marginTop: 2,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      transition: "border-color 0.2s, background 0.2s",
-                      boxShadow: termsAccepted
-                        ? "0 0 6px rgba(34,197,94,0.4)"
-                        : "none",
-                    }}
-                  >
-                    {termsAccepted && (
-                      <span
-                        style={{
-                          color: "#4ade80",
-                          fontSize: 9,
-                          lineHeight: 1,
-                          fontWeight: "bold",
-                        }}
-                      >
-                        ✓
-                      </span>
-                    )}
-                  </div>
-                  <span
-                    className="pf"
-                    style={{
-                      fontSize: 6.5,
-                      color: termsAccepted ? "#4ade80" : "#6b21a8",
-                      lineHeight: 2,
-                      transition: "color 0.2s",
-                    }}
-                  >
-                    {isLogin
-                      ? "I HAVE READ AND AGREE TO THE TERMS & CONDITIONS"
-                      : "I HAVE READ AND AGREE TO THE TERMS & CONDITIONS AND CONFIRM I AM ELIGIBLE TO CREATE AN ACCOUNT"}
-                  </span>
+                  {termsAccepted && (
+                    <span
+                      style={{
+                        color: "#4ade80",
+                        fontSize: 9,
+                        lineHeight: 1,
+                        fontWeight: "bold",
+                      }}
+                    >
+                      ✓
+                    </span>
+                  )}
                 </button>
 
-                {/* Reminder when unchecked */}
-                {!termsAccepted && (
-                  <p
-                    className="pf"
-                    style={{
-                      fontSize: 6,
-                      color: "#4c1d95",
-                      marginTop: 8,
-                      paddingTop: 8,
-                      borderTop: "1px solid #2d1060",
-                    }}
+                {/* Label */}
+                <span
+                  className="pf"
+                  style={{
+                    fontSize: 6.5,
+                    color: termsAccepted ? "#4ade80" : "#6b21a8",
+                    lineHeight: 2,
+                    transition: "color 0.2s",
+                  }}
+                >
+                  I AGREE TO THE{" "}
+                  <button
+                    type="button"
+                    className="terms-open-btn"
+                    onClick={() => setShowTermsModal(true)}
                   >
-                    ⚠ YOU MUST ACCEPT THE TERMS TO CONTINUE
-                  </p>
-                )}
+                    TERMS &amp; CONDITIONS
+                  </button>
+                </span>
               </div>
             </div>
 

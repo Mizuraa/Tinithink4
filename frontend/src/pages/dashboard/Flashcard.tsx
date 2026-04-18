@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase, getCurrentUser } from "../../lib/supabase";
 import { createContext, useContext } from "react";
 const _ThemeCtx = createContext<boolean>(false);
 function useLightMode() {
   return useContext(_ThemeCtx);
 }
+
 import {
   ChevronDown,
   Plus,
@@ -17,6 +18,13 @@ import {
   X,
   Check,
   RotateCcw,
+  ChevronLeft,
+  ChevronRight,
+  Shuffle,
+  Star,
+  Play,
+  ArrowLeft,
+  Keyboard,
 } from "lucide-react";
 
 type FlashcardData = {
@@ -28,6 +36,7 @@ type FlashcardData = {
   question: string;
   answer: string;
   is_public: boolean;
+  is_system?: boolean;
 };
 
 const S = `
@@ -40,10 +49,13 @@ const S = `
   @keyframes spin{to{transform:rotate(360deg)}}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
   @keyframes slideDown{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes cardFlipIn{from{opacity:0;transform:scale(0.95) translateY(12px)}to{opacity:1;transform:scale(1) translateY(0)}}
+  @keyframes knewIt{0%{background:rgba(20,83,45,.6)}100%{background:rgba(20,83,45,0)}}
   .fade-up{animation:fadeUp .35s ease both}
   .pop-in{animation:popIn .3s cubic-bezier(.34,1.56,.64,1) both}
   .shk{animation:shake .35s ease}
   .scan-line{animation:scanMove 8s linear infinite}
+  .card-anim{animation:cardFlipIn .3s ease both}
   .fc-input{
     background:rgba(8,3,24,.9);border:2px solid #2d1060;color:#e9d5ff;border-radius:0;
     width:100%;padding:10px 13px;font-family:'Press Start 2P',cursive;font-size:9px;
@@ -67,12 +79,28 @@ const S = `
   .fc-btn.ghost{background:rgba(45,16,96,.3);border-color:#2d1060;color:#6b21a8}
   .fc-btn.sm{padding:6px 10px;font-size:8px}
   .fc-btn.w100{width:100%}
-  .flip-inner{position:absolute;inset:0;transition:transform .55s cubic-bezier(.4,0,.2,1);transform-style:preserve-3d}
+  /* ── Flip card (grid view) ── */
+  .flip-inner{
+    width:100%;height:100%;
+    transition:transform .55s cubic-bezier(.4,0,.2,1);
+    transform-style:preserve-3d;
+    position:relative;
+  }
   .flip-inner.flipped{transform:rotateY(180deg)}
-  .flip-face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+  .flip-face{
+    position:absolute;inset:0;
+    backface-visibility:hidden;-webkit-backface-visibility:hidden;
+    display:grid;
+    grid-template-rows:auto 1fr auto;
+    overflow:hidden;
+  }
+  .flip-face-center{
+    display:flex;align-items:center;justify-content:center;
+    padding:8px 14px;overflow:hidden;
+  }
   .flip-back{transform:rotateY(180deg)}
-  .card-hover{transition:box-shadow .2s}
-  .card-hover:hover{box-shadow:0 6px 20px rgba(124,58,237,.35)}
+  .card-hover{transition:box-shadow .2s,transform .15s}
+  .card-hover:hover{box-shadow:0 6px 24px rgba(124,58,237,.4);transform:translateY(-2px)}
   .toast{position:fixed;bottom:24px;right:24px;z-index:999;padding:10px 16px;border:2px solid;border-radius:0;font-family:'Press Start 2P',cursive;font-size:8px;animation:popIn .3s ease both;box-shadow:4px 4px 0 rgba(0,0,0,.4)}
   .toast.ok{background:rgba(20,83,45,.95);border-color:#22c55e;color:#86efac}
   .toast.err{background:rgba(127,29,29,.95);border-color:#ef4444;color:#fca5a5}
@@ -89,6 +117,51 @@ const S = `
   .lm .search-row{background:#ffffff!important;border-color:#e2e8f0!important;}
   .lm .search-row input{color:#1e0a40!important;}
   .lm .confirm-inner{background:#ffffff!important;border-color:#ef4444!important;}
+  /* ── Study Mode ── */
+  .study-overlay{position:fixed;inset:0;z-index:100;background:#050310;display:flex;flex-direction:column;overflow:hidden;}
+  .study-card-wrap{flex:1;display:flex;align-items:center;justify-content:center;padding:20px;perspective:1400px;}
+  .study-card{
+    width:100%;max-width:640px;height:320px;
+    position:relative;cursor:pointer;
+    transform-style:preserve-3d;
+    transition:transform .6s cubic-bezier(.4,0,.2,1);
+  }
+  .study-card.flipped{transform:rotateY(180deg)}
+  .study-face{
+    position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;
+    display:flex;flex-direction:column;padding:32px 36px;
+    border:2px solid;
+  }
+  .study-front{background:rgba(8,3,24,.97);border-color:#2d1060;}
+  .study-back{background:rgba(5,28,18,.97);border-color:#166534;transform:rotateY(180deg);}
+  .study-nav-btn{
+    width:44px;height:44px;display:flex;align-items:center;justify-content:center;
+    background:rgba(45,16,96,.5);border:2px solid #2d1060;cursor:pointer;
+    transition:filter .15s,transform .08s,border-color .15s;flex-shrink:0;
+  }
+  .study-nav-btn:hover:not(:disabled){filter:brightness(1.3);border-color:#7c3aed;}
+  .study-nav-btn:active:not(:disabled){transform:scale(0.95);}
+  .study-nav-btn:disabled{opacity:.25;cursor:not-allowed;}
+  .study-action-btn{
+    flex:1;padding:14px 10px;font-family:'Press Start 2P',cursive;font-size:9px;
+    border:2px solid;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;
+    transition:filter .15s,transform .08s;
+  }
+  .study-action-btn:hover{filter:brightness(1.2);}
+  .study-action-btn:active{transform:translateY(1px);}
+  .study-action-btn.still-learning{background:rgba(127,29,29,.35);border-color:#ef4444;color:#f87171;}
+  .study-action-btn.knew-it{background:rgba(20,83,45,.35);border-color:#22c55e;color:#4ade80;}
+  .study-progress-bar{height:6px;background:#1a0a35;border:1px solid #2d1060;width:100%;overflow:hidden;}
+  .study-progress-fill{height:100%;background:linear-gradient(90deg,#7c3aed,#22d3ee);transition:width .4s ease;}
+  .study-shortcut-hint{
+    font-family:'Press Start 2P',cursive;font-size:6px;color:#2d1060;
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center;
+  }
+  .kbd{
+    display:inline-flex;align-items:center;justify-content:center;
+    padding:2px 6px;border:1px solid #2d1060;background:rgba(45,16,96,.3);
+    font-family:'Press Start 2P',cursive;font-size:5px;color:#3b1d6a;
+  }
 `;
 
 export default function Flashcard() {
@@ -99,7 +172,6 @@ export default function Flashcard() {
   const [selectedSubject, setSelectedSubject] = useState("");
   const [selectedGrade, setSelectedGrade] = useState("");
   const [selectedQuarter, setSelectedQuarter] = useState("");
-  // form state
   const [showForm, setShowForm] = useState(false);
   const [editingCard, setEditingCard] = useState<FlashcardData | null>(null);
   const [fCourse, setFCourse] = useState("");
@@ -111,20 +183,21 @@ export default function Flashcard() {
   const [fPublic, setFPublic] = useState(false);
   const [formShake, setFormShake] = useState(false);
   const [loading, setLoading] = useState(false);
-  // filter/search
   const [searchQuery, setSearchQuery] = useState("");
   const [filterPublic, setFilterPublic] = useState<boolean | null>(null);
-  // bulk select
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkConfirm, setBulkConfirm] = useState(false);
   const [toast, setToast] = useState<{
     msg: string;
     type: "ok" | "err";
   } | null>(null);
+  // Study mode
+  const [studyMode, setStudyMode] = useState(false);
 
   useEffect(() => {
     load();
   }, []);
+
   const toast$ = (msg: string, type: "ok" | "err") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 2800);
@@ -134,12 +207,17 @@ export default function Flashcard() {
     const user = await getCurrentUser();
     if (!user) return;
     setUserId(user.id);
-    const { data } = await supabase
+    const { data: userCards } = await supabase
       .from("flashcards")
       .select("*")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
-    setCards(data || []);
+    const { data: systemCards } = await supabase
+      .from("flashcards")
+      .select("*")
+      .eq("is_system", true)
+      .order("created_at", { ascending: true });
+    setCards([...(userCards || []), ...(systemCards || [])]);
   }
 
   const courses = [...new Set(cards.map((c) => c.course))];
@@ -334,6 +412,12 @@ export default function Flashcard() {
   return (
     <div style={{ width: "100%" }} className={lm ? "lm" : ""}>
       <style>{S}</style>
+
+      {/* Study mode overlay */}
+      {studyMode && visibleCards.length > 0 && (
+        <StudyMode cards={visibleCards} onClose={() => setStudyMode(false)} />
+      )}
+
       <div
         className="scan-line"
         style={{
@@ -347,6 +431,7 @@ export default function Flashcard() {
           pointerEvents: "none",
         }}
       />
+
       {toast && (
         <div className={`toast ${toast.type}`}>
           {toast.type === "ok" ? "✓ " : "⚠ "}
@@ -441,6 +526,14 @@ export default function Flashcard() {
           </span>
         </div>
         <div style={{ display: "flex", gap: 7 }}>
+          {visibleCards.length > 0 && selectedCourse && (
+            <button
+              className="fc-btn purple sm"
+              onClick={() => setStudyMode(true)}
+            >
+              <Play size={10} /> STUDY
+            </button>
+          )}
           {selected.size > 0 && (
             <button
               className="fc-btn danger sm"
@@ -842,46 +935,34 @@ export default function Flashcard() {
             <span className="pf" style={{ fontSize: 7, color: "#0891b2" }}>
               ▸ {pathFiltered.length} CARDS
             </span>
-            <span
-              className="tag"
-              style={{
-                borderColor:
-                  filterPublic === true
-                    ? "#22c55e"
-                    : lm
-                      ? "#e2e8f0"
-                      : "#1a0a35",
-                background:
-                  filterPublic === true ? "rgba(20,83,45,.3)" : "transparent",
-                color: filterPublic === true ? "#4ade80" : "#2d1060",
-              }}
-              onClick={() =>
-                setFilterPublic(filterPublic === true ? null : true)
-              }
-            >
-              <Eye size={8} />
-              PUBLIC
-            </span>
-            <span
-              className="tag"
-              style={{
-                borderColor:
-                  filterPublic === false
-                    ? "#7c3aed"
-                    : lm
-                      ? "#e2e8f0"
-                      : "#1a0a35",
-                background:
-                  filterPublic === false ? "rgba(88,28,135,.3)" : "transparent",
-                color: filterPublic === false ? "#c084fc" : "#2d1060",
-              }}
-              onClick={() =>
-                setFilterPublic(filterPublic === false ? null : false)
-              }
-            >
-              <EyeOff size={8} />
-              PRIVATE
-            </span>
+            {[
+              { filter: true, icon: <Eye size={8} />, label: "PUBLIC" },
+              { filter: false, icon: <EyeOff size={8} />, label: "PRIVATE" },
+            ].map(({ filter, icon, label }) => (
+              <span
+                key={label}
+                className="tag"
+                style={{
+                  borderColor:
+                    filterPublic === filter
+                      ? "#22c55e"
+                      : lm
+                        ? "#e2e8f0"
+                        : "#1a0a35",
+                  background:
+                    filterPublic === filter
+                      ? "rgba(20,83,45,.3)"
+                      : "transparent",
+                  color: filterPublic === filter ? "#4ade80" : "#2d1060",
+                }}
+                onClick={() =>
+                  setFilterPublic(filterPublic === filter ? null : filter)
+                }
+              >
+                {icon}
+                {label}
+              </span>
+            ))}
           </div>
         )}
       </div>
@@ -1003,6 +1084,475 @@ export default function Flashcard() {
   );
 }
 
+// ─── STUDY MODE (Quizlet-inspired) ────────────────────────────────────────────
+function StudyMode({
+  cards,
+  onClose,
+}: {
+  cards: FlashcardData[];
+  onClose: () => void;
+}) {
+  const [deck, setDeck] = useState<FlashcardData[]>([...cards]);
+  const [index, setIndex] = useState(0);
+  const [flipped, setFlipped] = useState(false);
+  const [known, setKnown] = useState<Set<string>>(new Set());
+  const [learning, setLearning] = useState<Set<string>>(new Set());
+  const [shuffled, setShuffled] = useState(false);
+  const [finished, setFinished] = useState(false);
+
+  const current = deck[index];
+  const progress = (index / deck.length) * 100;
+
+  const goNext = useCallback(() => {
+    if (index < deck.length - 1) {
+      setIndex((i) => i + 1);
+      setFlipped(false);
+    } else setFinished(true);
+  }, [index, deck.length]);
+
+  const goPrev = useCallback(() => {
+    if (index > 0) {
+      setIndex((i) => i - 1);
+      setFlipped(false);
+    }
+  }, [index]);
+
+  const handleKnewIt = () => {
+    setKnown((prev) => new Set([...prev, current.id]));
+    goNext();
+  };
+
+  const handleStillLearning = () => {
+    setLearning((prev) => new Set([...prev, current.id]));
+    goNext();
+  };
+
+  const handleShuffle = () => {
+    const shuffledDeck = [...deck].sort(() => Math.random() - 0.5);
+    setDeck(shuffledDeck);
+    setIndex(0);
+    setFlipped(false);
+    setShuffled(true);
+  };
+
+  const handleRestart = () => {
+    setDeck([...cards]);
+    setIndex(0);
+    setFlipped(false);
+    setKnown(new Set());
+    setLearning(new Set());
+    setFinished(false);
+    setShuffled(false);
+  };
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === " " || e.key === "ArrowUp" || e.key === "ArrowDown") {
+        e.preventDefault();
+        setFlipped((f) => !f);
+      }
+      if (e.key === "ArrowRight") goNext();
+      if (e.key === "ArrowLeft") goPrev();
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [goNext, goPrev, onClose]);
+
+  return (
+    <div className="study-overlay">
+      <style>{`
+        .study-overlay * { box-sizing: border-box; }
+      `}</style>
+
+      {/* Top bar */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          padding: "14px 20px",
+          gap: 12,
+          borderBottom: "1px solid #1a0a35",
+          background: "rgba(5,3,18,.9)",
+          flexShrink: 0,
+        }}
+      >
+        <button
+          onClick={onClose}
+          style={{
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            color: "#4c1d95",
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: 0,
+            transition: "color .15s",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "#c084fc")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = "#4c1d95")}
+        >
+          <ArrowLeft size={14} />
+          <span className="pf" style={{ fontSize: 7 }}>
+            BACK
+          </span>
+        </button>
+
+        <div style={{ flex: 1 }}>
+          <div className="study-progress-bar">
+            <div
+              className="study-progress-fill"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+
+        <div
+          className="pf"
+          style={{ fontSize: 8, color: "#a855f7", whiteSpace: "nowrap" }}
+        >
+          {index + 1} / {deck.length}
+        </div>
+
+        <button
+          onClick={handleShuffle}
+          style={{
+            background: "none",
+            border: "1px solid #2d1060",
+            cursor: "pointer",
+            color: shuffled ? "#a855f7" : "#3b1d6a",
+            padding: "4px 8px",
+            display: "flex",
+            alignItems: "center",
+            gap: 5,
+            transition: "all .15s",
+          }}
+        >
+          <Shuffle size={11} />
+          <span className="pf" style={{ fontSize: 6 }}>
+            SHUFFLE
+          </span>
+        </button>
+
+        <button
+          onClick={handleRestart}
+          style={{
+            background: "none",
+            border: "1px solid #2d1060",
+            cursor: "pointer",
+            color: "#3b1d6a",
+            padding: "4px 8px",
+            display: "flex",
+            alignItems: "center",
+            gap: 5,
+            transition: "color .15s",
+          }}
+        >
+          <RotateCcw size={11} />
+          <span className="pf" style={{ fontSize: 6 }}>
+            RESTART
+          </span>
+        </button>
+      </div>
+
+      {finished ? (
+        /* ── Finished screen ── */
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 20,
+            padding: 32,
+          }}
+        >
+          <div style={{ fontSize: 56 }}>🏆</div>
+          <div
+            className="pf"
+            style={{
+              fontSize: 14,
+              color: "#facc15",
+              textShadow: "0 0 20px rgba(250,204,21,.4)",
+            }}
+          >
+            ROUND COMPLETE!
+          </div>
+          <div style={{ display: "flex", gap: 24 }}>
+            <div style={{ textAlign: "center" }}>
+              <div className="pf" style={{ fontSize: 20, color: "#4ade80" }}>
+                {known.size}
+              </div>
+              <div
+                className="pf"
+                style={{ fontSize: 7, color: "#166534", marginTop: 4 }}
+              >
+                KNEW IT
+              </div>
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <div className="pf" style={{ fontSize: 20, color: "#f87171" }}>
+                {learning.size}
+              </div>
+              <div
+                className="pf"
+                style={{ fontSize: 7, color: "#7f1d1d", marginTop: 4 }}
+              >
+                STILL LEARNING
+              </div>
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <div className="pf" style={{ fontSize: 20, color: "#a855f7" }}>
+                {deck.length - known.size - learning.size}
+              </div>
+              <div
+                className="pf"
+                style={{ fontSize: 7, color: "#3b1d6a", marginTop: 4 }}
+              >
+                SKIPPED
+              </div>
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 12 }}>
+            <button className="fc-btn success" onClick={handleRestart}>
+              <RotateCcw size={12} />
+              STUDY AGAIN
+            </button>
+            <button className="fc-btn ghost" onClick={onClose}>
+              <ArrowLeft size={12} />
+              BACK TO CARDS
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* ── Card area ── */}
+          <div className="study-card-wrap">
+            <div
+              className="study-card"
+              style={{ transform: flipped ? "rotateY(180deg)" : "none" }}
+              onClick={() => setFlipped((f) => !f)}
+            >
+              {/* Front */}
+              <div className="study-face study-front">
+                <div
+                  className="corner-dot"
+                  style={{ top: 0, left: 0, background: "#3b1d6a" }}
+                />
+                <div
+                  className="corner-dot"
+                  style={{ top: 0, right: 0, background: "#22d3ee" }}
+                />
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                    marginBottom: 20,
+                  }}
+                >
+                  <span
+                    className="pf"
+                    style={{
+                      fontSize: 7,
+                      color: "#4c1d95",
+                      letterSpacing: "0.1em",
+                    }}
+                  >
+                    QUESTION
+                  </span>
+                  <span style={{ fontSize: 14 }}>
+                    {current?.is_system ? "📘" : "📝"}
+                  </span>
+                </div>
+                <div
+                  style={{
+                    flex: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <div
+                    className="pf"
+                    style={{
+                      fontSize: 11,
+                      color: "#e9d5ff",
+                      textAlign: "center",
+                      lineHeight: 2,
+                    }}
+                  >
+                    {current?.question}
+                  </div>
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    marginTop: 16,
+                  }}
+                >
+                  <div style={{ width: 4, height: 4, background: "#2d1060" }} />
+                  <span
+                    className="pf"
+                    style={{ fontSize: 6, color: "#2d1060" }}
+                  >
+                    CLICK OR SPACE TO FLIP
+                  </span>
+                  <div style={{ width: 4, height: 4, background: "#2d1060" }} />
+                </div>
+              </div>
+
+              {/* Back */}
+              <div
+                className="study-face study-back"
+                style={{ transform: "rotateY(180deg)" }}
+              >
+                <div
+                  className="corner-dot"
+                  style={{ top: 0, left: 0, background: "#22c55e" }}
+                />
+                <div
+                  className="corner-dot"
+                  style={{ bottom: 0, right: 0, background: "#22c55e" }}
+                />
+                <div style={{ marginBottom: 20 }}>
+                  <span
+                    className="pf"
+                    style={{
+                      fontSize: 7,
+                      color: "#166534",
+                      letterSpacing: "0.1em",
+                    }}
+                  >
+                    ANSWER
+                  </span>
+                </div>
+                <div
+                  style={{
+                    flex: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <div
+                    className="pf"
+                    style={{
+                      fontSize: 11,
+                      color: "#86efac",
+                      textAlign: "center",
+                      lineHeight: 2,
+                    }}
+                  >
+                    {current?.answer}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Navigation row ── */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 14,
+              padding: "0 20px 12px",
+              flexShrink: 0,
+            }}
+          >
+            <button
+              className="study-nav-btn"
+              onClick={goPrev}
+              disabled={index === 0}
+            >
+              <ChevronLeft size={20} color="#6b21a8" />
+            </button>
+
+            {/* Know it / Still learning — only show after flip */}
+            {flipped ? (
+              <div style={{ display: "flex", gap: 10, flex: 1, maxWidth: 400 }}>
+                <button
+                  className="study-action-btn still-learning"
+                  onClick={handleStillLearning}
+                >
+                  <X size={13} /> STILL LEARNING
+                </button>
+                <button
+                  className="study-action-btn knew-it"
+                  onClick={handleKnewIt}
+                >
+                  <Check size={13} /> KNEW IT
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setFlipped(true)}
+                style={{
+                  flex: 1,
+                  maxWidth: 400,
+                  padding: "14px 10px",
+                  fontFamily: "'Press Start 2P',cursive",
+                  fontSize: 9,
+                  background: "rgba(124,58,237,.25)",
+                  border: "2px solid #7c3aed",
+                  color: "#c084fc",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  transition: "filter .15s",
+                }}
+              >
+                <RotateCcw size={12} /> REVEAL ANSWER
+              </button>
+            )}
+
+            <button
+              className="study-nav-btn"
+              onClick={goNext}
+              disabled={index === deck.length - 1}
+            >
+              <ChevronRight size={20} color="#6b21a8" />
+            </button>
+          </div>
+
+          {/* Keyboard hints */}
+          <div
+            className="study-shortcut-hint"
+            style={{
+              padding: "10px 20px 18px",
+              flexShrink: 0,
+              borderTop: "1px solid #0d0620",
+            }}
+          >
+            <Keyboard size={10} color="#1a0a35" />
+            <span>
+              <span className="kbd">SPACE</span> flip
+            </span>
+            <span>
+              <span className="kbd">←</span>
+              <span className="kbd">→</span> navigate
+            </span>
+            <span>
+              <span className="kbd">ESC</span> exit
+            </span>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── FLIP CARD (grid view, Quizlet-inspired) ──────────────────────────────────
 function FlipCard({
   card,
   delay,
@@ -1021,17 +1571,25 @@ function FlipCard({
   const [flipped, setFlipped] = useState(false);
   const lm = useLightMode();
 
+  const borderColor = selected
+    ? "#7c3aed"
+    : card.is_system
+      ? "#1e3a5f"
+      : "#2d1060";
+
   return (
     <div
       className="fade-up card-hover"
       style={{
-        height: 200,
+        height: 220,
         perspective: "1000px",
         animationDelay: `${delay}ms`,
         position: "relative",
+        cursor: "pointer",
       }}
+      onClick={() => setFlipped((f) => !f)}
     >
-      {/* Select */}
+      {/* Checkbox — sits outside the flip so it doesn't rotate */}
       <div
         onClick={(e) => {
           e.stopPropagation();
@@ -1039,12 +1597,12 @@ function FlipCard({
         }}
         style={{
           position: "absolute",
-          top: 6,
-          left: 6,
-          zIndex: 10,
+          top: 8,
+          left: 8,
+          zIndex: 20,
           width: 16,
           height: 16,
-          background: selected ? "#7c3aed" : "rgba(8,3,24,.8)",
+          background: selected ? "#7c3aed" : "rgba(8,3,24,.85)",
           border: `2px solid ${selected ? "#a855f7" : "#2d1060"}`,
           display: "flex",
           alignItems: "center",
@@ -1055,149 +1613,186 @@ function FlipCard({
       >
         {selected && <Check size={9} color="#fff" />}
       </div>
+
+      {/* The 3-D flip wrapper */}
       <div
         className={`flip-inner${flipped ? " flipped" : ""}`}
-        onClick={() => setFlipped((f) => !f)}
-        style={{ cursor: "pointer", position: "absolute", inset: 0 }}
+        style={{ height: "100%" }}
       >
-        {/* Front */}
+        {/* ── FRONT ── */}
         <div
           className="flip-face"
           style={{
-            background: "rgba(8,3,24,.92)",
-            border: `2px solid ${selected ? "#7c3aed" : "#2d1060"}`,
-            display: "flex",
-            flexDirection: "column",
-            padding: "12px",
-            boxShadow: "4px 4px 0 #0a0018",
-            position: "relative",
+            background: card.is_system
+              ? "rgba(3,15,30,.97)"
+              : "rgba(8,3,24,.97)",
+            border: `2px solid ${borderColor}`,
+            boxShadow: `4px 4px 0 #0a0018`,
           }}
         >
+          {/* Corner accents */}
           <div
             className="corner-dot"
             style={{
               top: 0,
               left: 0,
-              background: selected ? "#a855f7" : "#3b1d6a",
+              background: selected
+                ? "#a855f7"
+                : card.is_system
+                  ? "#1e40af"
+                  : "#3b1d6a",
             }}
           />
           <div
             className="corner-dot"
-            style={{ top: 0, right: 0, background: "#38bdf8" }}
+            style={{
+              top: 0,
+              right: 0,
+              background: card.is_system ? "#2563eb" : "#38bdf8",
+            }}
           />
-          {/* Action buttons */}
+
+          {/* TOP: label + action buttons */}
           <div
             style={{
-              position: "absolute",
-              top: 8,
-              right: 8,
               display: "flex",
-              gap: 4,
-              zIndex: 5,
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={() => onEdit(card)}
-              style={{
-                background: "rgba(45,16,96,.6)",
-                border: "1px solid #3b1d6a",
-                color: "#6b21a8",
-                padding: "3px 5px",
-                cursor: "pointer",
-              }}
-              title="Edit"
-            >
-              <Edit2 size={9} />
-            </button>
-            <button
-              onClick={() => onDelete(card.id)}
-              style={{
-                background: "rgba(127,29,29,.5)",
-                border: "1px solid #7f1d1d",
-                color: "#f87171",
-                padding: "3px 5px",
-                cursor: "pointer",
-              }}
-              title="Delete"
-            >
-              <Trash2 size={9} />
-            </button>
-          </div>
-          {card.is_public && (
-            <span
-              style={{
-                position: "absolute",
-                bottom: 8,
-                left: 8,
-                display: "flex",
-                alignItems: "center",
-                gap: 3,
-                padding: "2px 5px",
-                border: "1px solid #166534",
-                background: "rgba(20,83,45,.5)",
-              }}
-            >
-              <Eye size={7} color="#4ade80" />
-              <span className="pf" style={{ fontSize: 6, color: "#4ade80" }}>
-                PUB
-              </span>
-            </span>
-          )}
-          <div
-            style={{
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
               alignItems: "center",
-              justifyContent: "center",
-              paddingTop: 10,
+              justifyContent: "space-between",
+              padding: "10px 12px 0",
             }}
           >
+            <span
+              className="pf"
+              style={{ fontSize: 6, color: "#3b1d6a", letterSpacing: "0.1em" }}
+            >
+              QUESTION
+            </span>
+            <div
+              style={{ display: "flex", gap: 4 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => onEdit(card)}
+                style={{
+                  background: "rgba(45,16,96,.6)",
+                  border: "1px solid #3b1d6a",
+                  color: "#6b21a8",
+                  padding: "3px 5px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+                title="Edit"
+              >
+                <Edit2 size={9} />
+              </button>
+              <button
+                onClick={() => onDelete(card.id)}
+                style={{
+                  background: "rgba(127,29,29,.5)",
+                  border: "1px solid #7f1d1d",
+                  color: "#f87171",
+                  padding: "3px 5px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+                title="Delete"
+              >
+                <Trash2 size={9} />
+              </button>
+            </div>
+          </div>
+
+          {/* MIDDLE: question text — truly centered */}
+          <div className="flip-face-center">
             <div
               className="pf"
               style={{
                 fontSize: 10,
                 color: lm ? "#1e0a40" : "#e9d5ff",
                 textAlign: "center",
-                lineHeight: 1.8,
+                lineHeight: 1.9,
+                wordBreak: "break-word",
               }}
             >
               {card.question}
             </div>
           </div>
+
+          {/* BOTTOM: badges + flip hint */}
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              justifyContent: "center",
-              gap: 4,
-              marginTop: 7,
+              justifyContent: "space-between",
+              padding: "0 12px 10px",
             }}
           >
-            <div style={{ width: 4, height: 4, background: "#3b1d6a" }} />
+            <div style={{ display: "flex", gap: 4 }}>
+              {card.is_system && (
+                <span
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 3,
+                    padding: "2px 5px",
+                    border: "1px solid #1d4ed8",
+                    background: "rgba(30,58,138,.5)",
+                  }}
+                >
+                  <BookOpen size={7} color="#93c5fd" />
+                  <span
+                    className="pf"
+                    style={{ fontSize: 5, color: "#93c5fd" }}
+                  >
+                    SAMPLE
+                  </span>
+                </span>
+              )}
+              {card.is_public && !card.is_system && (
+                <span
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 3,
+                    padding: "2px 5px",
+                    border: "1px solid #166534",
+                    background: "rgba(20,83,45,.5)",
+                  }}
+                >
+                  <Eye size={7} color="#4ade80" />
+                  <span
+                    className="pf"
+                    style={{ fontSize: 5, color: "#4ade80" }}
+                  >
+                    PUB
+                  </span>
+                </span>
+              )}
+            </div>
             <span
               className="pf"
-              style={{ fontSize: 6, color: lm ? "#e2e8f0" : "#FFFFFF" }}
+              style={{
+                fontSize: 5,
+                color: "#2d1060",
+                display: "flex",
+                alignItems: "center",
+                gap: 3,
+              }}
             >
-              TAP TO FLIP
+              <RotateCcw size={7} color="#2d1060" /> FLIP
             </span>
-            <div style={{ width: 4, height: 4, background: "#3b1d6a" }} />
           </div>
         </div>
-        {/* Back */}
+
+        {/* ── BACK ── */}
         <div
           className="flip-face flip-back"
           style={{
-            background: "rgba(5,28,18,.95)",
+            background: "rgba(5,28,18,.97)",
             border: "2px solid #166534",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "14px",
             boxShadow: "4px 4px 0 #052e16",
-            position: "relative",
           }}
         >
           <div
@@ -1206,47 +1801,66 @@ function FlipCard({
           />
           <div
             className="corner-dot"
-            style={{ bottom: 0, right: 0, background: "#22c55e" }}
+            style={{ top: 0, right: 0, background: "#22c55e" }}
           />
-          <div
-            className="pf"
-            style={{ fontSize: 7, color: "#166534", marginBottom: 10 }}
-          >
-            ANSWER
+
+          {/* TOP: answer label */}
+          <div style={{ padding: "10px 12px 0" }}>
+            <span
+              className="pf"
+              style={{ fontSize: 6, color: "#166534", letterSpacing: "0.1em" }}
+            >
+              ANSWER
+            </span>
           </div>
-          <div
-            className="pf"
-            style={{
-              fontSize: 10,
-              color: "#86efac",
-              textAlign: "center",
-              lineHeight: 1.8,
-            }}
-          >
-            {card.answer}
+
+          {/* MIDDLE: answer text — truly centered */}
+          <div className="flip-face-center">
+            <div
+              className="pf"
+              style={{
+                fontSize: 10,
+                color: "#86efac",
+                textAlign: "center",
+                lineHeight: 1.9,
+                wordBreak: "break-word",
+              }}
+            >
+              {card.answer}
+            </div>
           </div>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setFlipped(false);
-            }}
+
+          {/* BOTTOM: flip back button */}
+          <div
             style={{
-              position: "absolute",
-              bottom: 8,
-              right: 8,
-              background: "rgba(20,83,45,.5)",
-              border: "1px solid #166534",
-              color: "#4ade80",
-              padding: "3px 6px",
-              cursor: "pointer",
               display: "flex",
-              alignItems: "center",
-              gap: 3,
+              justifyContent: "flex-end",
+              padding: "0 12px 10px",
             }}
-            title="Flip back"
           >
-            <RotateCcw size={8} />
-          </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setFlipped(false);
+              }}
+              style={{
+                background: "rgba(20,83,45,.5)",
+                border: "1px solid #166534",
+                color: "#4ade80",
+                padding: "3px 7px",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+              }}
+              title="Flip back"
+            >
+              <RotateCcw size={8} />
+              <span className="pf" style={{ fontSize: 5 }}>
+                BACK
+              </span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

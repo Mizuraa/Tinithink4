@@ -8,6 +8,7 @@ import Folder from "./pages/dashboard/Folder";
 import Flashcard from "./pages/dashboard/Flashcard";
 import GameRoom from "./pages/GameRoom";
 import InstallPrompt from "./InstallPrompt";
+import InstallAppWidget from "./Installappwidget";
 
 function AuthGate({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
@@ -127,6 +128,7 @@ export default function App() {
         </Routes>
       </BrowserRouter>
       <InstallPrompt />
+      <InstallAppWidget />
     </AuthGate>
   );
 }

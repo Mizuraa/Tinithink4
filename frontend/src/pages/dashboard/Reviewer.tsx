@@ -25,6 +25,7 @@ type ReviewItem = {
   definition: string;
   highlightColor?: string;
   underline?: boolean;
+  is_system?: boolean;
 };
 
 const COLORS = [
@@ -143,21 +144,31 @@ export function Reviewer() {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return;
-    const { data } = await supabase
+
+    const { data: userTerms } = await supabase
       .from("reviewer_terms")
       .select("*")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
-    if (data)
-      setReviewList(
-        data.map((t) => ({
-          id: t.id,
-          term: t.term,
-          definition: t.definition,
-          highlightColor: t.highlight_color,
-          underline: t.underline,
-        })),
-      );
+
+    const { data: systemTerms } = await supabase
+      .from("reviewer_terms")
+      .select("*")
+      .eq("is_system", true)
+      .order("created_at", { ascending: true });
+
+    const allTerms = [...(userTerms || []), ...(systemTerms || [])];
+
+    setReviewList(
+      allTerms.map((t) => ({
+        id: t.id,
+        term: t.term,
+        definition: t.definition,
+        highlightColor: t.highlight_color,
+        underline: t.underline,
+        is_system: t.is_system ?? false,
+      })),
+    );
   }
 
   async function addItem() {
@@ -919,6 +930,26 @@ export function Reviewer() {
                             }}
                           >
                             UNDERLINE
+                          </span>
+                        </div>
+                      )}
+                      {item.is_system && (
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 4,
+                            padding: "2px 6px",
+                            background: "rgba(30,58,138,.3)",
+                            border: "1px solid #1d4ed8",
+                          }}
+                        >
+                          <BookMarked size={8} color="#93c5fd" />
+                          <span
+                            className="pf"
+                            style={{ fontSize: 6, color: "#93c5fd" }}
+                          >
+                            SAMPLE
                           </span>
                         </div>
                       )}

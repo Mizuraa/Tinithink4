@@ -21,6 +21,7 @@ import {
   XCircle,
   CheckCircle,
   TrendingUp,
+  BookOpen,
 } from "lucide-react";
 
 type DbGame = {
@@ -32,6 +33,7 @@ type DbGame = {
   is_public: boolean;
   difficulty: string;
   created_at: string;
+  is_system?: boolean;
 };
 
 type ChoiceInput = { text: string; isCorrect: boolean };
@@ -143,13 +145,20 @@ export default function MyGames() {
     try {
       const user = await getCurrentUser();
       if (!user) return;
-      const { data, error } = await supabase
+      const { data: userGames, error } = await supabase
         .from("games")
         .select("*")
         .eq("creator_id", user.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      setGames(data ?? []);
+
+      const { data: systemGames } = await supabase
+        .from("games")
+        .select("*")
+        .eq("is_system", true)
+        .order("created_at", { ascending: true });
+
+      setGames([...(userGames ?? []), ...(systemGames ?? [])]);
     } catch (e: any) {
       console.error("Error loading games:", e);
     } finally {
@@ -1473,15 +1482,25 @@ export default function MyGames() {
                 <>
                   <div
                     className="flex items-center gap-2 px-4 py-1 border-b-2 border-purple-800/60"
-                    style={{ background: "rgba(88,28,135,0.3)" }}
+                    style={{
+                      background: game.is_system
+                        ? "rgba(30,58,138,0.3)"
+                        : "rgba(88,28,135,0.3)",
+                    }}
                   >
-                    {game.is_multiplayer ? (
+                    {game.is_system ? (
+                      <BookOpen size={10} className="text-blue-400" />
+                    ) : game.is_multiplayer ? (
                       <Users size={10} className="text-cyan-400" />
                     ) : (
                       <Gamepad2 size={10} className="text-purple-400" />
                     )}
                     <span className="pixel-font text-[8px] text-purple-500">
-                      {game.is_multiplayer ? "MULTIPLAYER" : "SOLO"}
+                      {game.is_system
+                        ? "SAMPLE"
+                        : game.is_multiplayer
+                          ? "MULTIPLAYER"
+                          : "SOLO"}
                     </span>
                     <span className="ml-auto flex items-center gap-1">
                       {game.is_public ? (
@@ -1541,7 +1560,7 @@ export default function MyGames() {
                               } as any
                             )[(game.difficulty as string) || "easy"]
                           }
-                          {game.is_multiplayer && (
+                          {game.is_multiplayer && !game.is_system && (
                             <span className="flex items-center gap-1 pixel-font text-[8px] text-purple-500">
                               <Users size={8} /> {game.max_players}P
                             </span>
@@ -1550,7 +1569,7 @@ export default function MyGames() {
                       </div>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {game.is_multiplayer ? (
+                      {game.is_multiplayer && !game.is_system ? (
                         <button
                           onClick={() => handlePlayMultiplayer(game.id)}
                           className="btn-press col-span-2 sm:col-span-1 px-3 py-3 bg-cyan-600 border-2 border-cyan-400 text-white pixel-font text-[9px] pixel-box hover:bg-cyan-500 transition-colors flex items-center justify-center gap-2"

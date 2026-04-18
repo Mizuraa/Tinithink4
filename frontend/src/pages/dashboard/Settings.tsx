@@ -334,19 +334,13 @@ const S = `
   .section-header.expanded{margin-bottom:14px}
   .chevron{transition:transform .2s;font-size:10px;color:#4c1d95}
   .chevron.open{transform:rotate(90deg)}
-  /* Toggle track — beats .lm-root * !important */
   .lm-root .toggle-track.tt-on  { background-color: #000000 !important; border-color: #000000 !important; }
   .lm-root .toggle-track.tt-off { background-color: #ffffff !important; border-color: #000000 !important; }
   .lm-root .toggle-track.tt-on  > div { background-color: #ffffff !important; }
   .lm-root .toggle-track.tt-off > div { background-color: #000000 !important; }
-
-
-  /* Force color-chip background — survives any lm-root global override */
   .color-chip[data-color] { background: attr(data-color) !important; }
-  /* attr() isn't widely supported for non-content, so we use CSS var fallback */
   .color-chip { background: var(--chip-color, #888) !important; }
   .lm-root .color-chip { background: var(--chip-color, #888) !important; }
-  /* Color swatch chip — deliberately NOT named 'swatch' to avoid global lm-root overrides */
   .color-chip {
     border: 2px solid #2d1060;
     transition: transform .12s, box-shadow .12s, border-color .12s;
@@ -357,10 +351,8 @@ const S = `
     border-color: #fff !important;
     box-shadow: 0 0 0 2px #7c3aed, 0 0 8px rgba(168,85,247,.4);
   }
-  /* Ensure lm-root NEVER overrides the chip's background — it's always the color hex */
   .lm-root .color-chip { background: revert !important; }
   .lm-root .swatch-wrap.active .color-chip { border-color: #7c3aed !important; box-shadow: 0 0 0 2px #a855f7 !important; }
-  /* Named swatch labels */
   .swatch-wrap { display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer; }
   .swatch-name {
     font-family:'Press Start 2P',cursive; font-size:5px; text-align:center;
@@ -370,17 +362,13 @@ const S = `
   }
   .swatch-wrap:hover .swatch-name { opacity:1; transform:translateY(0); }
   .swatch-wrap.active .swatch-name { opacity:1; transform:translateY(0); font-size:6px; }
-
-  /* Light mode overrides for avatar card */
   .lm-root .avatar-card { background: linear-gradient(135deg,rgba(238,232,255,.6),rgba(255,255,255,.95)) !important; border-color: #7c3aed !important; box-shadow: 3px 3px 0 rgba(124,58,237,.15) !important; }
-  /* .color-chip lm-root rules are handled in the color-chip block above */
   .lm-root .avatar-card .acc-btn { background: #ffffff !important; border-color: #d1d5db !important; color: #6b21a8 !important; }
   .lm-root .avatar-card .acc-btn:hover { border-color: #7c3aed !important; }
   .lm-root .avatar-card .acc-btn.active { background: #7c3aed !important; border-color: #a855f7 !important; color: #ffffff !important; }
   .lm-root .avatar-card .avatar-save-btn { background: rgba(124,58,237,.1) !important; border-color: #7c3aed !important; color: #4c1d95 !important; }
   .lm-root .avatar-card .avatar-save-btn.ok { background: rgba(20,83,45,.15) !important; border-color: #22c55e !important; color: #166534 !important; }
   .lm-root .avatar-card .glowPulse-ref { animation: none !important; box-shadow: 0 2px 8px rgba(124,58,237,.15) !important; }
-
   @keyframes avatarFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
   @keyframes glowPulse{0%,100%{box-shadow:0 0 10px rgba(168,85,247,.25)}50%{box-shadow:0 0 24px rgba(168,85,247,.5)}}
   .avatar-card{animation:glowPulse 2.5s ease-in-out infinite;}
@@ -403,7 +391,6 @@ const S = `
   .avatar-save-btn:hover{filter:brightness(1.15);}
   .avatar-save-btn:active{transform:translateY(1px);}
   .avatar-save-btn.ok{border-color:#22c55e;background:rgba(20,83,45,.7);color:#86efac;animation:saved .4s ease}
-
 `;
 
 type FieldProps = {
@@ -479,7 +466,9 @@ const Settings: React.FC<SettingsProps> = ({
   const [currentPw, setCurrentPw] = useState("");
   const [newPw, setNewPw] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
-  const [showPw, setShowPw] = useState(false);
+  const [showCurrPw, setShowCurrPw] = useState(false);
+  const [showNewPw, setShowNewPw] = useState(false);
+  const [showConfirmPw, setShowConfirmPw] = useState(false);
   const [pwShake, setPwShake] = useState(false);
   const [changingPw, setChangingPw] = useState(false);
   // Notifications
@@ -498,6 +487,7 @@ const Settings: React.FC<SettingsProps> = ({
   useEffect(() => {
     loadSettings();
   }, []);
+
   const toast$ = (msg: string, type: "ok" | "err") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 2500);
@@ -541,7 +531,6 @@ const Settings: React.FC<SettingsProps> = ({
         setSchool(vals.school);
         setBio(vals.bio);
         setOrig(vals);
-        // Load notification prefs
         const notifs = p.notifications || {};
         if (notifs.friend_requests !== undefined)
           setNotifFriendReq(notifs.friend_requests);
@@ -549,7 +538,6 @@ const Settings: React.FC<SettingsProps> = ({
           setNotifGroupInvite(notifs.group_invites);
         if (notifs.game_invites !== undefined)
           setNotifGameInvite(notifs.game_invites);
-        // Prefer DB avatar over localStorage if it exists
         if (p.avatar_config) {
           setAvatarCfg(p.avatar_config);
           saveAvatarLocal(p.avatar_config);
@@ -619,6 +607,7 @@ const Settings: React.FC<SettingsProps> = ({
     }
   }
 
+  // ─── FIXED: handleChangePassword using re-auth ────────────────────────────
   async function handleChangePassword() {
     if (!currentPw || !newPw || !confirmPw) {
       setPwShake(true);
@@ -638,30 +627,52 @@ const Settings: React.FC<SettingsProps> = ({
     }
     setChangingPw(true);
     try {
-      // Verify current password by re-authenticating
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user?.email) throw new Error("No user");
-      const { error: signInErr } = await supabase.auth.signInWithPassword({
+      // Step 1: verify current password by re-authenticating
+      const user = await getCurrentUser();
+      if (!user?.email) {
+        toast$("SESSION EXPIRED - RELOGIN", "err");
+        return;
+      }
+      const { error: signInError } = await supabase.auth.signInWithPassword({
         email: user.email,
         password: currentPw,
       });
-      if (signInErr) {
+      if (signInError) {
+        setPwShake(true);
+        setTimeout(() => setPwShake(false), 400);
         toast$("CURRENT PASSWORD INCORRECT", "err");
         return;
       }
-      const { error } = await supabase.auth.updateUser({ password: newPw });
-      if (error) throw error;
+
+      // Step 2: update to the new password
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPw,
+      });
+      if (updateError) throw updateError;
+
       setCurrentPw("");
       setNewPw("");
       setConfirmPw("");
       setShowPwSection(false);
       toast$("PASSWORD CHANGED!", "ok");
     } catch (e: any) {
-      if (e.message?.includes("Invalid"))
-        toast$("CURRENT PASSWORD INCORRECT", "err");
-      else toast$("CHANGE FAILED", "err");
+      const msg: string = e?.message || "";
+      if (
+        msg.toLowerCase().includes("weak") ||
+        msg.toLowerCase().includes("strength")
+      ) {
+        toast$("PASSWORD TOO WEAK", "err");
+      } else if (
+        msg.toLowerCase().includes("session") ||
+        msg.toLowerCase().includes("no user")
+      ) {
+        toast$("SESSION EXPIRED - RELOGIN", "err");
+      } else {
+        toast$(
+          msg ? `ERR: ${msg.slice(0, 18).toUpperCase()}` : "CHANGE FAILED",
+          "err",
+        );
+      }
     } finally {
       setChangingPw(false);
     }
@@ -737,9 +748,7 @@ const Settings: React.FC<SettingsProps> = ({
         </span>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════════════
-          AVATAR PROFILE CARD
-          ═══════════════════════════════════════════════════════════════════ */}
+      {/* ═══ AVATAR PROFILE CARD ═══ */}
       <div
         className="section-card avatar-card"
         style={{
@@ -759,7 +768,6 @@ const Settings: React.FC<SettingsProps> = ({
           style={{ top: 0, right: 0, background: "#a855f7" }}
         />
 
-        {/* ── Profile header: avatar + name + stats ── */}
         <div
           style={{
             display: "flex",
@@ -769,7 +777,6 @@ const Settings: React.FC<SettingsProps> = ({
             flexWrap: "wrap",
           }}
         >
-          {/* Floating avatar preview */}
           <div style={{ position: "relative", flexShrink: 0 }}>
             <MiniAvatar cfg={avatarCfg} size={90} />
             <div
@@ -788,7 +795,6 @@ const Settings: React.FC<SettingsProps> = ({
               }}
             />
           </div>
-          {/* Name + stats */}
           <div style={{ flex: 1, minWidth: 120 }}>
             <div
               className="pf"
@@ -868,7 +874,6 @@ const Settings: React.FC<SettingsProps> = ({
           </div>
         </div>
 
-        {/* Divider */}
         <div
           style={{
             borderTop: lightMode ? "1px solid #e5e7eb" : "1px solid #2d1060",
@@ -876,7 +881,7 @@ const Settings: React.FC<SettingsProps> = ({
           }}
         />
 
-        {/* ── Hair color ── */}
+        {/* Hair color */}
         <div style={{ marginBottom: 16 }}>
           <div
             className="pf"
@@ -888,7 +893,6 @@ const Settings: React.FC<SettingsProps> = ({
           >
             HAIR COLOR
           </div>
-          {/* Selected hair name */}
           <div
             className="pf"
             style={{
@@ -941,7 +945,7 @@ const Settings: React.FC<SettingsProps> = ({
           </div>
         </div>
 
-        {/* ── Skin tone ── */}
+        {/* Skin tone */}
         <div style={{ marginBottom: 16 }}>
           <div
             className="pf"
@@ -953,7 +957,6 @@ const Settings: React.FC<SettingsProps> = ({
           >
             SKIN TONE
           </div>
-          {/* Selected skin name */}
           <div
             className="pf"
             style={{
@@ -1006,7 +1009,7 @@ const Settings: React.FC<SettingsProps> = ({
           </div>
         </div>
 
-        {/* ── Accessory ── */}
+        {/* Accessory */}
         <div style={{ marginBottom: 20 }}>
           <div
             className="pf"
@@ -1038,7 +1041,6 @@ const Settings: React.FC<SettingsProps> = ({
           </div>
         </div>
 
-        {/* ── Save avatar ── */}
         <button
           className={`avatar-save-btn ${avatarSaved ? "ok" : ""}`}
           onClick={handleSaveAvatar}
@@ -1402,73 +1404,156 @@ const Settings: React.FC<SettingsProps> = ({
             className={`fade-up ${pwShake ? "shk" : ""}`}
             style={{ display: "flex", flexDirection: "column", gap: 10 }}
           >
-            {[
-              {
-                label: "CURRENT PASSWORD",
-                val: currentPw,
-                set: setCurrentPw,
-                ph: "••••••••",
-              },
-              {
-                label: "NEW PASSWORD (8+ CHARS)",
-                val: newPw,
-                set: setNewPw,
-                ph: "••••••••",
-              },
-              {
-                label: "CONFIRM NEW PASSWORD",
-                val: confirmPw,
-                set: setConfirmPw,
-                ph: "••••••••",
-              },
-            ].map(({ label, val, set, ph }) => (
-              <div key={label}>
-                <div
-                  className="pf"
-                  style={{ fontSize: 7, color: "#4c1d95", marginBottom: 6 }}
-                >
-                  {label}
-                </div>
-                <div style={{ position: "relative" }}>
-                  <div
-                    style={{
-                      position: "absolute",
-                      left: 11,
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      zIndex: 1,
-                    }}
-                  >
-                    <Lock size={11} color="#3b1d6a" />
-                  </div>
-                  <input
-                    className="s-input"
-                    type={showPw ? "text" : "password"}
-                    value={val}
-                    onChange={(e) => set(e.target.value)}
-                    placeholder={ph}
-                    style={{ paddingRight: 36 }}
-                  />
-                  <button
-                    onClick={() => setShowPw((v) => !v)}
-                    style={{
-                      position: "absolute",
-                      right: 11,
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                      color: "#4c1d95",
-                      padding: 0,
-                      display: "flex",
-                    }}
-                  >
-                    {showPw ? <EyeOff size={12} /> : <Eye size={12} />}
-                  </button>
-                </div>
+            {/* Current Password */}
+            <div>
+              <div
+                className="pf"
+                style={{ fontSize: 7, color: "#4c1d95", marginBottom: 6 }}
+              >
+                CURRENT PASSWORD
               </div>
-            ))}
+              <div style={{ position: "relative" }}>
+                <div
+                  style={{
+                    position: "absolute",
+                    left: 11,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    zIndex: 1,
+                  }}
+                >
+                  <Lock size={11} color="#3b1d6a" />
+                </div>
+                <input
+                  className="s-input"
+                  type={showCurrPw ? "text" : "password"}
+                  value={currentPw}
+                  onChange={(e) => setCurrentPw(e.target.value)}
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                  style={{ paddingRight: 36 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCurrPw((v) => !v)}
+                  style={{
+                    position: "absolute",
+                    right: 11,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "#4c1d95",
+                    padding: 0,
+                    display: "flex",
+                  }}
+                >
+                  {showCurrPw ? <EyeOff size={12} /> : <Eye size={12} />}
+                </button>
+              </div>
+            </div>
+
+            {/* New Password */}
+            <div>
+              <div
+                className="pf"
+                style={{ fontSize: 7, color: "#4c1d95", marginBottom: 6 }}
+              >
+                NEW PASSWORD (8+ CHARS)
+              </div>
+              <div style={{ position: "relative" }}>
+                <div
+                  style={{
+                    position: "absolute",
+                    left: 11,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    zIndex: 1,
+                  }}
+                >
+                  <Lock size={11} color="#3b1d6a" />
+                </div>
+                <input
+                  className="s-input"
+                  type={showNewPw ? "text" : "password"}
+                  value={newPw}
+                  onChange={(e) => setNewPw(e.target.value)}
+                  placeholder="••••••••"
+                  autoComplete="new-password"
+                  style={{ paddingRight: 36 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPw((v) => !v)}
+                  style={{
+                    position: "absolute",
+                    right: 11,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "#4c1d95",
+                    padding: 0,
+                    display: "flex",
+                  }}
+                >
+                  {showNewPw ? <EyeOff size={12} /> : <Eye size={12} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Confirm Password */}
+            <div>
+              <div
+                className="pf"
+                style={{ fontSize: 7, color: "#4c1d95", marginBottom: 6 }}
+              >
+                CONFIRM NEW PASSWORD
+              </div>
+              <div style={{ position: "relative" }}>
+                <div
+                  style={{
+                    position: "absolute",
+                    left: 11,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    zIndex: 1,
+                  }}
+                >
+                  <Lock size={11} color="#3b1d6a" />
+                </div>
+                <input
+                  className="s-input"
+                  type={showConfirmPw ? "text" : "password"}
+                  value={confirmPw}
+                  onChange={(e) => setConfirmPw(e.target.value)}
+                  placeholder="••••••••"
+                  autoComplete="new-password"
+                  style={{ paddingRight: 36 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPw((v) => !v)}
+                  style={{
+                    position: "absolute",
+                    right: 11,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "#4c1d95",
+                    padding: 0,
+                    display: "flex",
+                  }}
+                >
+                  {showConfirmPw ? <EyeOff size={12} /> : <Eye size={12} />}
+                </button>
+              </div>
+            </div>
+
             {/* Password strength indicator */}
             {newPw && (
               <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
@@ -1504,7 +1589,9 @@ const Settings: React.FC<SettingsProps> = ({
                 </span>
               </div>
             )}
+
             <button
+              type="button"
               onClick={handleChangePassword}
               disabled={changingPw}
               style={{
@@ -1537,8 +1624,7 @@ const Settings: React.FC<SettingsProps> = ({
                 </>
               ) : (
                 <>
-                  <Lock size={10} />
-                  CHANGE PASSWORD
+                  <Lock size={10} /> CHANGE PASSWORD
                 </>
               )}
             </button>
@@ -1568,13 +1654,11 @@ const Settings: React.FC<SettingsProps> = ({
             </>
           ) : saved ? (
             <>
-              <Check size={13} />
-              SAVED!
+              <Check size={13} /> SAVED!
             </>
           ) : (
             <>
-              <Save size={13} />
-              {isDirty ? "SAVE CHANGES ●" : "SAVE SETTINGS"}
+              <Save size={13} /> {isDirty ? "SAVE CHANGES ●" : "SAVE SETTINGS"}
             </>
           )}
         </button>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase, getCurrentUser } from "../../lib/supabase";
-import { Flame, Gift, Check, Lock, X } from "lucide-react";
+import { Flame, Gift, Check, Lock, X, Trophy, Star, Zap } from "lucide-react";
 
 // ─── TYPES ─────────────────────────────────────────────────────────────────────
 type Reward = {
@@ -11,8 +11,6 @@ type Reward = {
 };
 
 // ─── MILESTONE CONFIG ─────────────────────────────────────────────────────────
-// Edit these to change when rewards unlock and what they give.
-// Keep rewards small — shop should still be more valuable.
 const MILESTONES: { day: number; reward: Reward }[] = [
   {
     day: 3,
@@ -36,7 +34,16 @@ const MILESTONES: { day: number; reward: Reward }[] = [
   },
 ];
 
-const TOTAL_DAYS = 30; // one full month of streaks shown
+const TOTAL_DAYS = 30;
+
+// ─── ACHIEVEMENT BADGES (decorative media below milestones) ───────────────────
+const BADGES = [
+  { emoji: "🔥", label: "ON FIRE", desc: "3-day streak", unlockAt: 3 },
+  { emoji: "⚡", label: "ELECTRIC", desc: "7-day streak", unlockAt: 7 },
+  { emoji: "🌟", label: "STAR PUPIL", desc: "14-day streak", unlockAt: 14 },
+  { emoji: "🏆", label: "CHAMPION", desc: "21-day streak", unlockAt: 21 },
+  { emoji: "👑", label: "ROYALTY", desc: "30-day streak", unlockAt: 30 },
+];
 
 // ─── CSS ───────────────────────────────────────────────────────────────────────
 const CSS = `
@@ -47,11 +54,15 @@ const CSS = `
   @keyframes scSlide  { from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)} }
   @keyframes scShine  { 0%,100%{box-shadow:0 0 6px rgba(250,204,21,.3)}50%{box-shadow:0 0 18px rgba(250,204,21,.7)} }
   @keyframes scBounce { 0%,100%{transform:translateY(0)}40%{transform:translateY(-6px)} }
+  @keyframes scGlow   { 0%,100%{opacity:.6}50%{opacity:1} }
+  @keyframes scRotate { to{transform:rotate(360deg)} }
+  @keyframes scBadgePop { 0%{transform:scale(0.5);opacity:0}70%{transform:scale(1.2)}100%{transform:scale(1);opacity:1} }
   .sc-flame  { animation: scFlame  1.4s ease-in-out infinite; display:inline-block; }
   .sc-pop    { animation: scPop    .35s cubic-bezier(.34,1.56,.64,1) both; }
   .sc-slide  { animation: scSlide  .4s ease both; }
   .sc-shine  { animation: scShine  2s ease-in-out infinite; }
   .sc-bounce { animation: scBounce 1.8s ease-in-out infinite; }
+  .sc-glow   { animation: scGlow   2.5s ease-in-out infinite; }
   .sc-day {
     aspect-ratio: 1;
     min-width: 0;
@@ -76,6 +87,7 @@ const CSS = `
     border:2px solid #f97316; background:rgba(194,65,12,.25); color:#fb923c;
     transition:filter .15s, transform .08s;
     display:flex; align-items:center; justify-content:center; gap:6px;
+    width:100%;
   }
   .sc-claim-btn:hover  { filter:brightness(1.2); }
   .sc-claim-btn:active { transform:translateY(1px); }
@@ -88,6 +100,15 @@ const CSS = `
   }
   .sc-modal-bg { position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center; }
   .sc-modal { background:#0f0820;border:4px solid #7c3aed;padding:28px;max-width:340px;width:90%;box-shadow:12px 12px 0 rgba(88,28,135,.45); }
+  .sc-badge {
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:5px; padding:12px 8px;
+    border:2px solid; transition:all .2s;
+    flex:1; min-width:0;
+  }
+  .sc-badge.locked { border-color:#1a0a35; background:rgba(8,3,24,.5); opacity:.45; }
+  .sc-badge.unlocked { border-color:#f97316; background:rgba(194,65,12,.1); animation:scBadgePop .5s cubic-bezier(.34,1.56,.64,1) both; }
+  .sc-badge.mastered { border-color:#22c55e; background:rgba(20,83,45,.25); animation:scBadgePop .5s cubic-bezier(.34,1.56,.64,1) both; }
 `;
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
@@ -101,7 +122,7 @@ export async function updateStreakOnLogin(userId: string) {
   if (!data) return;
 
   const last = data.last_play_date;
-  if (last === today) return; // already played today
+  if (last === today) return;
 
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
@@ -110,16 +131,13 @@ export async function updateStreakOnLogin(userId: string) {
   const newStreak = last === yStr ? (data.streak_days || 0) + 1 : 1;
   await supabase
     .from("users")
-    .update({
-      streak_days: newStreak,
-      last_play_date: today,
-    })
+    .update({ streak_days: newStreak, last_play_date: today })
     .eq("id", userId);
 }
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
 interface StreakCalendarProps {
-  compact?: boolean; // true = small card for dashboard embed
+  compact?: boolean;
 }
 
 export default function StreakCalendar({
@@ -184,11 +202,8 @@ export default function StreakCalendar({
       const updates: Record<string, any> = {
         claimed_streak_days: [...already, milestone.day],
       };
-
-      // Apply reward
       if (milestone.reward.type === "coins") {
         updates.coins = (userData.coins || 0) + milestone.reward.amount;
-        // Also update localStorage so GameRoom sees it immediately
         try {
           const cur = parseInt(localStorage.getItem("tini_coins") || "0");
           localStorage.setItem(
@@ -197,7 +212,6 @@ export default function StreakCalendar({
           );
         } catch {}
       }
-      // For powerups, we increment the relevant column (add if missing)
       if (milestone.reward.type === "heart") updates.bonus_hearts = 1;
       if (milestone.reward.type === "key") updates.bonus_keys = 1;
       if (milestone.reward.type === "shield") updates.bonus_shields = 1;
@@ -212,7 +226,6 @@ export default function StreakCalendar({
     }
   }
 
-  // Which milestones are claimable right now?
   const claimableMilestones = MILESTONES.filter(
     (m) => streakDays >= m.day && !claimedDays.includes(m.day),
   );
@@ -227,7 +240,7 @@ export default function StreakCalendar({
       </div>
     );
 
-  // ── COMPACT MODE (dashboard widget) ──────────────────────────────────────────
+  // ── COMPACT MODE ─────────────────────────────────────────────────────────────
   if (compact)
     return (
       <div
@@ -302,7 +315,6 @@ export default function StreakCalendar({
           )}
         </div>
 
-        {/* Mini progress bar to next milestone */}
         {(() => {
           const next = MILESTONES.find((m) => streakDays < m.day);
           if (!next)
@@ -369,7 +381,6 @@ export default function StreakCalendar({
           );
         })()}
 
-        {/* Claimable rewards */}
         {claimableMilestones.length > 0 && (
           <div
             style={{
@@ -402,10 +413,11 @@ export default function StreakCalendar({
       </div>
     );
 
-  // ── FULL MODE ────────────────────────────────────────────────────────────────
+  // ── FULL MODE — TWO COLUMN LAYOUT ─────────────────────────────────────────────
   return (
-    <div style={{ width: "100%", maxWidth: 640 }}>
+    <div style={{ width: "100%", maxWidth: 900 }}>
       <style>{CSS}</style>
+
       {toast && (
         <div
           style={{
@@ -426,41 +438,116 @@ export default function StreakCalendar({
         </div>
       )}
 
-      {/* ── Header ── */}
+      {/* ── Top Header ── */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
           gap: 14,
-          marginBottom: 20,
+          marginBottom: 24,
+          padding: "18px 20px",
+          background: "rgba(8,3,24,.8)",
+          border: "2px solid #2d1060",
+          boxShadow: "4px 4px 0 #0a0018",
         }}
       >
-        <span className="sc-flame" style={{ fontSize: 32 }}>
+        <span className="sc-flame" style={{ fontSize: 38 }}>
           🔥
         </span>
-        <div>
+        <div style={{ flex: 1 }}>
           <div
             className="sc-font"
             style={{
-              fontSize: 16,
+              fontSize: 18,
               color: "#facc15",
-              textShadow: "0 0 16px rgba(250,204,21,.5)",
+              textShadow: "0 0 20px rgba(250,204,21,.5)",
+              marginBottom: 4,
             }}
           >
             {streakDays} DAY STREAK
           </div>
-          <div
-            className="sc-font"
-            style={{ fontSize: 7, color: "#4c1d95", marginTop: 4 }}
-          >
+          <div className="sc-font" style={{ fontSize: 7, color: "#4c1d95" }}>
             PLAY DAILY TO EARN REWARDS
           </div>
         </div>
+
+        {/* Global progress to next milestone */}
+        {(() => {
+          const next = MILESTONES.find((m) => streakDays < m.day);
+          if (!next)
+            return (
+              <div
+                className="sc-font"
+                style={{
+                  fontSize: 8,
+                  color: "#22c55e",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                <Trophy size={14} color="#22c55e" /> ALL DONE!
+              </div>
+            );
+          const prev =
+            MILESTONES.filter((m) => m.day <= streakDays).at(-1)?.day || 0;
+          const pct = Math.min(
+            ((streakDays - prev) / (next.day - prev)) * 100,
+            100,
+          );
+          return (
+            <div style={{ minWidth: 160 }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: 5,
+                }}
+              >
+                <div
+                  className="sc-font"
+                  style={{ fontSize: 6, color: "#4c1d95" }}
+                >
+                  NEXT: DAY {next.day}
+                </div>
+                <div
+                  className="sc-font"
+                  style={{ fontSize: 6, color: "#f97316" }}
+                >
+                  {next.reward.emoji}
+                </div>
+              </div>
+              <div
+                style={{
+                  background: "#1a0a35",
+                  border: "1px solid #2d1060",
+                  height: 10,
+                  borderRadius: 0,
+                }}
+              >
+                <div
+                  style={{
+                    width: `${pct}%`,
+                    height: "100%",
+                    background: "linear-gradient(90deg,#f97316,#facc15)",
+                    transition: "width .6s",
+                  }}
+                />
+              </div>
+              <div
+                className="sc-font"
+                style={{ fontSize: 6, color: "#3b1d6a", marginTop: 3 }}
+              >
+                {streakDays}/{next.day} DAYS
+              </div>
+            </div>
+          );
+        })()}
+
         {claimableMilestones.length > 0 && (
           <div
             className="sc-bounce sc-font"
             style={{
-              marginLeft: "auto",
               fontSize: 7,
               color: "#fb923c",
               display: "flex",
@@ -469,195 +556,403 @@ export default function StreakCalendar({
             }}
           >
             <Gift size={14} color="#fb923c" />
-            {claimableMilestones.length} REWARD
-            {claimableMilestones.length > 1 ? "S" : ""} READY!
+            {claimableMilestones.length} READY!
           </div>
         )}
       </div>
 
-      {/* ── Calendar grid: 30 days ── */}
+      {/* ── TWO COLUMN BODY ── */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(7,1fr)",
-          gap: 6,
-          marginBottom: 20,
+          gridTemplateColumns: "1fr 1fr",
+          gap: 20,
+          alignItems: "start",
         }}
       >
-        {Array.from({ length: TOTAL_DAYS }, (_, i) => {
-          const day = i + 1;
-          const done = day <= streakDays;
-          const isToday = day === streakDays;
-          const milestone = MILESTONES.find((m) => m.day === day);
-          const claimed = milestone && claimedDays.includes(day);
+        {/* ── LEFT: Calendar Grid ── */}
+        <div>
+          <div
+            className="sc-font"
+            style={{ fontSize: 8, color: "#4c1d95", marginBottom: 12 }}
+          >
+            ◆ 30-DAY CALENDAR
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(7,1fr)",
+              gap: 5,
+              marginBottom: 16,
+            }}
+          >
+            {Array.from({ length: TOTAL_DAYS }, (_, i) => {
+              const day = i + 1;
+              const done = day <= streakDays;
+              const isToday = day === streakDays;
+              const milestone = MILESTONES.find((m) => m.day === day);
+              const claimed = milestone && claimedDays.includes(day);
 
-          return (
-            <div
-              key={day}
-              className={[
-                "sc-day",
-                done ? "done" : "future",
-                isToday ? "today" : "",
-                milestone ? "milestone" : "",
-              ].join(" ")}
-              title={
-                milestone
-                  ? `Day ${day}: ${milestone.reward.emoji} ${milestone.reward.label}`
-                  : `Day ${day}`
-              }
-            >
-              {/* Milestone icon */}
-              {milestone && (
-                <span style={{ fontSize: compact ? 8 : 10, lineHeight: 1 }}>
-                  {claimed ? "✓" : done ? milestone.reward.emoji : "🔒"}
-                </span>
-              )}
+              return (
+                <div
+                  key={day}
+                  className={[
+                    "sc-day",
+                    done ? "done" : "future",
+                    isToday ? "today" : "",
+                    milestone ? "milestone" : "",
+                  ].join(" ")}
+                  title={
+                    milestone
+                      ? `Day ${day}: ${milestone.reward.emoji} ${milestone.reward.label}`
+                      : `Day ${day}`
+                  }
+                >
+                  {milestone && (
+                    <span style={{ fontSize: 8, lineHeight: 1 }}>
+                      {claimed ? "✓" : done ? milestone.reward.emoji : "🔒"}
+                    </span>
+                  )}
+                  <span
+                    className="sc-font"
+                    style={{
+                      fontSize: 5,
+                      color: done
+                        ? isToday
+                          ? "#facc15"
+                          : "#86efac"
+                        : "#2d1060",
+                    }}
+                  >
+                    {day}
+                  </span>
+                  {done && !milestone && (
+                    <span style={{ fontSize: 7, lineHeight: 1 }}>🔥</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
 
-              {/* Day number */}
-              <span
-                className="sc-font"
-                style={{
-                  fontSize: 6,
-                  color: done ? (isToday ? "#facc15" : "#86efac") : "#2d1060",
-                }}
-              >
-                {day}
-              </span>
-
-              {/* Flame for completed days */}
-              {done && !milestone && (
-                <span style={{ fontSize: 8, lineHeight: 1 }}>🔥</span>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* ── Milestones detail row ── */}
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 10,
-          marginBottom: 20,
-        }}
-      >
-        <div
-          className="sc-font"
-          style={{ fontSize: 8, color: "#4c1d95", marginBottom: 4 }}
-        >
-          ◆ STREAK MILESTONES
-        </div>
-        {MILESTONES.map((m) => {
-          const reached = streakDays >= m.day;
-          const claimed = claimedDays.includes(m.day);
-          const claimable = reached && !claimed;
-
-          return (
-            <div
-              key={m.day}
-              className="sc-slide"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                padding: "12px 14px",
-                background: claimed
-                  ? "rgba(20,83,45,.25)"
-                  : reached
-                    ? "rgba(194,65,12,.1)"
-                    : "rgba(8,3,24,.5)",
-                border: `2px solid ${claimed ? "#22c55e" : reached ? "#f97316" : "#1a0a35"}`,
-                boxShadow:
-                  reached && !claimed ? "0 0 10px rgba(249,115,22,.2)" : "none",
-              }}
-            >
-              {/* Icon */}
+          {/* Legend */}
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 10,
+              marginBottom: 12,
+            }}
+          >
+            {[
+              { color: "#22c55e", bg: "rgba(20,83,45,.3)", label: "DONE" },
+              { color: "#facc15", bg: "rgba(66,32,6,.5)", label: "TODAY" },
+              { color: "#f97316", bg: "rgba(8,3,24,.5)", label: "MILESTONE" },
+              { color: "#2d1060", bg: "rgba(8,3,24,.5)", label: "FUTURE" },
+            ].map(({ color, bg, label }) => (
               <div
-                style={{
-                  width: 36,
-                  height: 36,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  background: claimed
-                    ? "rgba(20,83,45,.4)"
-                    : reached
-                      ? "rgba(194,65,12,.2)"
-                      : "rgba(8,3,24,.7)",
-                  border: `2px solid ${claimed ? "#4ade80" : reached ? "#fb923c" : "#2d1060"}`,
-                  fontSize: 18,
-                  flexShrink: 0,
-                }}
+                key={label}
+                style={{ display: "flex", alignItems: "center", gap: 5 }}
               >
-                {claimed ? "✓" : m.reward.emoji}
-              </div>
-
-              {/* Info */}
-              <div style={{ flex: 1, minWidth: 0 }}>
                 <div
-                  className="sc-font"
                   style={{
-                    fontSize: 8,
-                    color: claimed
-                      ? "#4ade80"
-                      : reached
-                        ? "#fb923c"
-                        : "#4c1d95",
-                    marginBottom: 3,
+                    width: 10,
+                    height: 10,
+                    background: bg,
+                    border: `2px solid ${color}`,
                   }}
-                >
-                  DAY {m.day}
-                </div>
-                <div
+                />
+                <span
                   className="sc-font"
-                  style={{
-                    fontSize: 7,
-                    color: claimed ? "#86efac" : "#2d1060",
-                  }}
+                  style={{ fontSize: 5, color: "#3b1d6a" }}
                 >
-                  {m.reward.label}
-                </div>
+                  {label}
+                </span>
               </div>
+            ))}
+          </div>
 
-              {/* Status / Claim */}
-              {claimed ? (
-                <div className="sc-claimed-btn">
-                  <Check size={10} /> CLAIMED
-                </div>
-              ) : claimable ? (
-                <button
-                  className="sc-claim-btn sc-shine"
-                  onClick={() => handleClaim(m)}
-                  disabled={claiming}
-                >
-                  <Gift size={10} /> CLAIM
-                </button>
-              ) : (
+          <div
+            className="sc-font"
+            style={{
+              fontSize: 6,
+              color: "#2d1060",
+              padding: "8px 10px",
+              border: "1px solid #1a0a35",
+              background: "rgba(8,3,24,.5)",
+            }}
+          >
+            ⚠ MISSING A DAY RESETS YOUR STREAK TO 0
+          </div>
+        </div>
+
+        {/* ── RIGHT: Milestones + Badges ── */}
+        <div>
+          <div
+            className="sc-font"
+            style={{ fontSize: 8, color: "#4c1d95", marginBottom: 12 }}
+          >
+            ◆ STREAK MILESTONES
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+              marginBottom: 20,
+            }}
+          >
+            {MILESTONES.map((m) => {
+              const reached = streakDays >= m.day;
+              const claimed = claimedDays.includes(m.day);
+              const claimable = reached && !claimed;
+
+              return (
                 <div
-                  className="sc-font"
+                  key={m.day}
+                  className="sc-slide"
                   style={{
-                    fontSize: 7,
-                    color: "#2d1060",
                     display: "flex",
                     alignItems: "center",
-                    gap: 5,
+                    gap: 10,
+                    padding: "10px 12px",
+                    background: claimed
+                      ? "rgba(20,83,45,.25)"
+                      : reached
+                        ? "rgba(194,65,12,.1)"
+                        : "rgba(8,3,24,.5)",
+                    border: `2px solid ${claimed ? "#22c55e" : reached ? "#f97316" : "#1a0a35"}`,
+                    boxShadow:
+                      reached && !claimed
+                        ? "0 0 10px rgba(249,115,22,.2)"
+                        : "none",
                   }}
                 >
-                  <Lock size={10} color="#2d1060" /> {m.day - streakDays}d LEFT
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+                  {/* Icon */}
+                  <div
+                    style={{
+                      width: 32,
+                      height: 32,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: claimed
+                        ? "rgba(20,83,45,.4)"
+                        : reached
+                          ? "rgba(194,65,12,.2)"
+                          : "rgba(8,3,24,.7)",
+                      border: `2px solid ${claimed ? "#4ade80" : reached ? "#fb923c" : "#2d1060"}`,
+                      fontSize: 16,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {claimed ? "✓" : m.reward.emoji}
+                  </div>
 
-      {/* ── Footer tip ── */}
-      <div
-        className="sc-font"
-        style={{ fontSize: 7, color: "#2d1060", textAlign: "center" }}
-      >
-        ⚠ MISSING A DAY RESETS YOUR STREAK TO 0
+                  {/* Info */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      className="sc-font"
+                      style={{
+                        fontSize: 7,
+                        color: claimed
+                          ? "#4ade80"
+                          : reached
+                            ? "#fb923c"
+                            : "#4c1d95",
+                        marginBottom: 2,
+                      }}
+                    >
+                      DAY {m.day}
+                    </div>
+                    <div
+                      className="sc-font"
+                      style={{
+                        fontSize: 6,
+                        color: claimed ? "#86efac" : "#2d1060",
+                      }}
+                    >
+                      {m.reward.label}
+                    </div>
+                  </div>
+
+                  {/* Status */}
+                  {claimed ? (
+                    <div
+                      className="sc-claimed-btn"
+                      style={{ padding: "7px 10px" }}
+                    >
+                      <Check size={9} /> OK
+                    </div>
+                  ) : claimable ? (
+                    <button
+                      className="sc-claim-btn sc-shine"
+                      style={{
+                        width: "auto",
+                        padding: "7px 10px",
+                        fontSize: 7,
+                      }}
+                      onClick={() => handleClaim(m)}
+                      disabled={claiming}
+                    >
+                      <Gift size={9} /> CLAIM
+                    </button>
+                  ) : (
+                    <div
+                      className="sc-font"
+                      style={{
+                        fontSize: 6,
+                        color: "#2d1060",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      <Lock size={9} color="#2d1060" /> {m.day - streakDays}d
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* ── ACHIEVEMENT BADGES (media / decorative) ── */}
+          <div
+            className="sc-font"
+            style={{ fontSize: 7, color: "#4c1d95", marginBottom: 10 }}
+          >
+            ◆ ACHIEVEMENT BADGES
+          </div>
+          <div
+            style={{
+              display: "flex",
+              gap: 6,
+              flexWrap: "wrap",
+              marginBottom: 12,
+            }}
+          >
+            {BADGES.map((b, idx) => {
+              const unlocked = streakDays >= b.unlockAt;
+              const mastered = claimedDays.includes(b.unlockAt);
+              const status = mastered
+                ? "mastered"
+                : unlocked
+                  ? "unlocked"
+                  : "locked";
+
+              return (
+                <div
+                  key={b.label}
+                  className={`sc-badge ${status}`}
+                  style={{ animationDelay: `${idx * 80}ms` }}
+                  title={b.desc}
+                >
+                  <span
+                    style={{
+                      fontSize: unlocked ? 22 : 18,
+                      filter: unlocked ? "none" : "grayscale(1)",
+                      lineHeight: 1,
+                    }}
+                  >
+                    {b.emoji}
+                  </span>
+                  <span
+                    className="sc-font"
+                    style={{
+                      fontSize: 5,
+                      color: mastered
+                        ? "#4ade80"
+                        : unlocked
+                          ? "#fb923c"
+                          : "#1a0a35",
+                      textAlign: "center",
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    {b.label}
+                  </span>
+                  {!unlocked && <span style={{ fontSize: 8 }}>🔒</span>}
+                  {mastered && (
+                    <span
+                      className="sc-font"
+                      style={{ fontSize: 4, color: "#22c55e" }}
+                    >
+                      CLAIMED
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* ── Motivational stats bar ── */}
+          <div
+            style={{
+              padding: "12px 14px",
+              background: "rgba(8,3,24,.7)",
+              border: "2px solid #1a0a35",
+              display: "flex",
+              gap: 16,
+              flexWrap: "wrap",
+            }}
+          >
+            {[
+              {
+                icon: <Flame size={12} color="#f97316" />,
+                val: streakDays,
+                label: "CURRENT",
+              },
+              {
+                icon: <Trophy size={12} color="#facc15" />,
+                val: claimedDays.length,
+                label: "CLAIMED",
+              },
+              {
+                icon: <Star size={12} color="#a855f7" />,
+                val:
+                  MILESTONES.length -
+                  claimedDays.filter((d) => MILESTONES.some((m) => m.day === d))
+                    .length,
+                label: "REMAINING",
+              },
+              {
+                icon: <Zap size={12} color="#22d3ee" />,
+                val: TOTAL_DAYS - streakDays > 0 ? TOTAL_DAYS - streakDays : 0,
+                label: "TO 30-DAY",
+              },
+            ].map(({ icon, val, label }) => (
+              <div
+                key={label}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 4,
+                  flex: 1,
+                }}
+              >
+                {icon}
+                <span
+                  className="sc-font"
+                  style={{ fontSize: 10, color: "#facc15" }}
+                >
+                  {val}
+                </span>
+                <span
+                  className="sc-font"
+                  style={{
+                    fontSize: 5,
+                    color: "#2d1060",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {label}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       {rewardPopup && (
@@ -670,7 +965,7 @@ export default function StreakCalendar({
   );
 }
 
-// ─── REWARD CLAIMED MODAL ─────────────────────────────────────────────────────
+// ─── REWARD MODAL ─────────────────────────────────────────────────────────────
 function RewardModal({
   reward,
   onClose,
