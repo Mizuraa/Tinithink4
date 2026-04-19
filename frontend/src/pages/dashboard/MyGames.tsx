@@ -211,14 +211,24 @@ export default function MyGames() {
   }
 
   async function joinGameWithCode() {
-    if (!joinInput.trim()) {
-      alert("⚠️ ENTER A CODE");
-      return;
-    }
+    const code = joinInput.trim().toUpperCase();
+    if (!code) return alert("⚠️ ENTER A CODE");
+
     try {
-      const user = await getCurrentUser();
-      if (!user) return;
-      navigate(`/game?code=${joinInput.trim()}`);
+      // Look up the session by its human-readable code
+      const { data: session, error } = await supabase
+        .from("game_sessions")
+        .select("id, game_id")
+        .eq("session_code", code)
+        .single();
+
+      if (error || !session) {
+        alert("⚠️ INVALID CODE. PLEASE TRY AGAIN.");
+        return;
+      }
+
+      // Navigate to the session
+      navigate(`/game/${session.game_id}?session=${session.id}`);
       setShowJoinModal(false);
       setJoinInput("");
     } catch (e: any) {
@@ -666,30 +676,30 @@ export default function MyGames() {
       const user = await getCurrentUser();
       if (!user) return;
 
-      // 1. Fetch aggregate scores
-      const { data: playerScores, error: scoreError } = await supabase
+      // Fetch aggregate player scores/streaks
+      const { data: scoreData, error: scoreError } = await supabase
         .from("player_scores")
         .select("score, total_correct, total_answered, streak")
         .eq("user_id", user.id);
 
       if (scoreError) throw scoreError;
 
-      if (playerScores && playerScores.length > 0) {
-        const totalCorrect = playerScores.reduce(
+      if (scoreData && scoreData.length > 0) {
+        const totalCorrect = scoreData.reduce(
           (sum, p) => sum + (p.total_correct || 0),
           0,
         );
-        const totalAnswered = playerScores.reduce(
+        const totalAnswered = scoreData.reduce(
           (sum, p) => sum + (p.total_answered || 0),
           0,
         );
 
         setStats({
-          total_games: playerScores.length,
+          total_games: scoreData.length,
           total_correct: totalCorrect,
           total_answered: totalAnswered,
-          current_streak: Math.max(...playerScores.map((p) => p.streak || 0)),
-          highest_score: Math.max(...playerScores.map((p) => p.score || 0)),
+          current_streak: Math.max(...scoreData.map((p) => p.streak || 0)),
+          highest_score: Math.max(...scoreData.map((p) => p.score || 0)),
           accuracy:
             totalAnswered > 0
               ? Math.round((totalCorrect / totalAnswered) * 100)
@@ -697,9 +707,9 @@ export default function MyGames() {
         });
       }
 
-      // 2. Fetch actual wrong answers from the database
+      // Fetch the real wrong answers from the table you just checked
       const { data: wrongData, error: wrongError } = await supabase
-        .from("wrong_answers") // Ensure this table exists in your DB
+        .from("wrong_answers")
         .select("*")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
