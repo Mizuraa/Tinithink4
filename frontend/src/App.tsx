@@ -7,7 +7,6 @@ import MyGames from "./pages/dashboard/MyGames";
 import Folder from "./pages/dashboard/Folder";
 import Flashcard from "./pages/dashboard/Flashcard";
 import GameRoom from "./pages/GameRoom";
-import InstallPrompt from "./InstallPrompt";
 import InstallAppWidget from "./Installappwidget";
 
 function AuthGate({ children }: { children: React.ReactNode }) {
@@ -127,7 +126,7 @@ export default function App() {
           <Route path="/" element={<Navigate to="/login" replace />} />
         </Routes>
       </BrowserRouter>
-      <InstallPrompt />
+
       <InstallAppWidget />
     </AuthGate>
   );
