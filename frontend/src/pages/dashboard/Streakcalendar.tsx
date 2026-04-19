@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase, getCurrentUser } from "../../lib/supabase";
 import { Flame, Gift, Check, Lock, Trophy, Star, Zap } from "lucide-react";
-import { AVATAR_IMAGES } from "../../assets/AvatarImages";
+import { AVATAR_IMAGES } from "../../../public/AvatarImages";
 
 // ─── TYPES & HELPERS ──────────────────────────────────────────────────────────
 type Reward = {

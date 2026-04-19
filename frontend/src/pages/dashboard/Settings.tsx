@@ -15,7 +15,7 @@ import {
   Bell,
   BellOff,
 } from "lucide-react";
-import { AVATAR_IMAGES } from "..//..//assets/AvatarImages";
+import { AVATAR_IMAGES } from "../../../public/AvatarImages";
 
 // ─── AVATAR TYPES & CONSTANTS ─────────────────────────────────────────────────
 type AvatarGender = "female" | "male";

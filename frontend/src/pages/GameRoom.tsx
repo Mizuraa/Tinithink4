@@ -18,7 +18,7 @@ import {
   VolumeX,
   ShoppingBag,
 } from "lucide-react";
-import { AVATAR_IMAGES } from "../assets/AvatarImages";
+import { AVATAR_IMAGES } from "../..//public/AvatarImages";
 
 type DbChoice = {
   id: string;
