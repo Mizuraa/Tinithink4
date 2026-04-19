@@ -24,6 +24,7 @@ type DbChoice = {
   id: string;
   question_id: string;
   text: string;
+  score: number;
   is_correct: boolean;
 };
 type DbQuestion = { id: string; text: string; ordering: number };
