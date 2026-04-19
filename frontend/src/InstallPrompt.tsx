@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+/*import { useState, useEffect } from "react";
 
 function isIOS() {
   return (
@@ -71,7 +71,7 @@ export default function InstallPrompt() {
         boxShadow: "0 4px 24px rgba(0,0,0,0.4)",
       }}
     >
-      {/* Header */}
+      {/* Header }
       <div
         style={{
           display: "flex",
@@ -107,7 +107,7 @@ export default function InstallPrompt() {
         </button>
       </div>
 
-      {/* iOS instructions */}
+      {/* iOS instructions }
       {isIOSDevice ? (
         <p style={{ margin: 0, fontSize: 13, color: "#ccc", lineHeight: 1.6 }}>
           Open in <strong style={{ color: "white" }}>Safari</strong>, tap the{" "}
@@ -136,3 +136,4 @@ export default function InstallPrompt() {
     </div>
   );
 }
+*/
