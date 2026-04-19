@@ -14,40 +14,29 @@ const CSS = `
   }
 
   .iaw-tab {
-    /* Fixed to right edge of screen */
     position: fixed;
     top: 140px;
     right: 0;
     z-index: 9999;
-
-    /* Rotate so the text reads upward like a book spine */
     transform: rotate(-90deg);
     transform-origin: right bottom;
-
     display: flex;
     align-items: center;
     gap: 7px;
     padding: 7px 16px 7px 12px;
-
     background: rgba(10,4,28,0.97);
     border: 2px solid #7c3aed;
-    /* hide the right border since it faces the screen edge */
     border-right: none;
-
     cursor: pointer;
     user-select: none;
-    position: fixed;
-
     animation:
       iawSlideIn 0.5s cubic-bezier(0.34,1.56,0.64,1) 1.2s both,
       iawGlow 3s ease-in-out 2s infinite;
-
     transition: filter 0.15s, transform 0.15s;
   }
 
   .iaw-tab:hover {
     filter: brightness(1.3);
-    /* nudge slightly out from the edge */
     transform: rotate(-90deg) translateX(4px);
   }
   .iaw-tab:active {
@@ -75,7 +64,6 @@ const CSS = `
     flex-shrink: 0;
   }
 
-  /* Small corner accent pips */
   .iaw-pip {
     position: absolute;
     width: 5px;
@@ -95,10 +83,20 @@ export default function InstallAppWidget() {
   const [visible, setVisible] = useState(false);
   const [installing, setInstalling] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
 
   useEffect(() => {
-    // Already running as installed PWA — no need to show
     if (window.matchMedia("(display-mode: standalone)").matches) return;
+
+    const ios =
+      /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+    if (ios) {
+      setIsIOS(true);
+      setVisible(true);
+      return;
+    }
 
     const handler = (e: Event) => {
       e.preventDefault();
@@ -113,7 +111,16 @@ export default function InstallAppWidget() {
   if (!visible || dismissed) return null;
 
   async function handleInstall() {
-    if (!deferredPrompt || installing) return;
+    if (installing) return;
+
+    if (isIOS) {
+      alert(
+        'To install: tap the Share button (⎋) at the bottom of Safari, then tap "Add to Home Screen".',
+      );
+      return;
+    }
+
+    if (!deferredPrompt) return;
     setInstalling(true);
     try {
       await deferredPrompt.prompt();
@@ -135,7 +142,6 @@ export default function InstallAppWidget() {
         role="button"
         aria-label="Install TiniThink App"
       >
-        {/* Corner accent pips */}
         <div className="iaw-pip" style={{ top: 0, left: 0 }} />
         <div className="iaw-pip" style={{ top: 0, right: 0 }} />
 
