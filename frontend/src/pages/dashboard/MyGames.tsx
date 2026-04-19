@@ -665,11 +665,15 @@ export default function MyGames() {
     try {
       const user = await getCurrentUser();
       if (!user) return;
+
+      // 1. Fetch aggregate scores
       const { data: playerScores, error: scoreError } = await supabase
         .from("player_scores")
         .select("score, total_correct, total_answered, streak")
         .eq("user_id", user.id);
+
       if (scoreError) throw scoreError;
+
       if (playerScores && playerScores.length > 0) {
         const totalCorrect = playerScores.reduce(
           (sum, p) => sum + (p.total_correct || 0),
@@ -679,31 +683,29 @@ export default function MyGames() {
           (sum, p) => sum + (p.total_answered || 0),
           0,
         );
-        const maxScore = Math.max(...playerScores.map((p) => p.score || 0));
-        const maxStreak = Math.max(...playerScores.map((p) => p.streak || 0));
+
         setStats({
           total_games: playerScores.length,
           total_correct: totalCorrect,
           total_answered: totalAnswered,
-          current_streak: maxStreak,
-          highest_score: maxScore,
+          current_streak: Math.max(...playerScores.map((p) => p.streak || 0)),
+          highest_score: Math.max(...playerScores.map((p) => p.score || 0)),
           accuracy:
             totalAnswered > 0
               ? Math.round((totalCorrect / totalAnswered) * 100)
               : 0,
         });
       }
-      setWrongAnswers([
-        {
-          id: "1",
-          game_title: "Sample Game",
-          question_text: "What is the capital of France?",
-          wrong_choice: "London",
-          correct_choice: "Paris",
-          difficulty: "easy",
-          created_at: new Date().toISOString(),
-        },
-      ]);
+
+      // 2. Fetch actual wrong answers from the database
+      const { data: wrongData, error: wrongError } = await supabase
+        .from("wrong_answers") // Ensure this table exists in your DB
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (wrongError) throw wrongError;
+      setWrongAnswers(wrongData || []);
     } catch (e: any) {
       console.error("Error loading stats:", e);
     } finally {

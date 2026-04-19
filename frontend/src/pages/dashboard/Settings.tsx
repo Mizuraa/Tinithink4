@@ -15,34 +15,42 @@ import {
   Bell,
   BellOff,
 } from "lucide-react";
+import { AVATAR_IMAGES } from "..//..//assets/AvatarImages";
 
 // ─── AVATAR TYPES & CONSTANTS ─────────────────────────────────────────────────
+type AvatarGender = "female" | "male";
+type AvatarChar = "1" | "2" | "3" | "4";
+type AvatarColor =
+  | "purple"
+  | "sky"
+  | "pink"
+  | "red"
+  | "mint"
+  | "gold"
+  | "white"
+  | "black";
+
 type AvatarCfg = {
-  hairColor: string;
-  skinColor: string;
-  accessory: "none" | "glasses" | "crown" | "headband";
+  gender: AvatarGender;
+  char: AvatarChar;
+  color: AvatarColor;
 };
-const HAIR_COLORS: { hex: string; name: string }[] = [
-  { hex: "#a855f7", name: "PURPLE" },
-  { hex: "#38bdf8", name: "SKY" },
-  { hex: "#f472b6", name: "PINK" },
-  { hex: "#ef4444", name: "RED" },
-  { hex: "#4ade80", name: "MINT" },
-  { hex: "#facc15", name: "GOLD" },
-  { hex: "#f5f5f5", name: "WHITE" },
-  { hex: "#1a0820", name: "BLACK" },
+
+const HAIR_COLORS: { key: AvatarColor; hex: string; name: string }[] = [
+  { key: "purple", hex: "#a855f7", name: "PURPLE" },
+  { key: "sky", hex: "#38bdf8", name: "SKY" },
+  { key: "pink", hex: "#f472b6", name: "PINK" },
+  { key: "red", hex: "#ef4444", name: "RED" },
+  { key: "mint", hex: "#4ade80", name: "MINT" },
+  { key: "gold", hex: "#facc15", name: "GOLD" },
+  { key: "white", hex: "#f5f5f5", name: "WHITE" },
+  { key: "black", hex: "#1a0820", name: "BLACK" },
 ];
-const SKIN_TONES: { hex: string; name: string }[] = [
-  { hex: "#f4c87a", name: "FAIR" },
-  { hex: "#e8a96a", name: "WARM" },
-  { hex: "#c8854a", name: "TAN" },
-  { hex: "#8b5e3c", name: "DEEP" },
-];
-const ACCESSORIES = ["none", "glasses", "crown", "headband"] as const;
+
 const DEFAULT_AVATAR: AvatarCfg = {
-  hairColor: "#a855f7",
-  skinColor: "#f4c87a",
-  accessory: "none",
+  gender: "female",
+  char: "1",
+  color: "purple",
 };
 
 function loadAvatarLocal(): AvatarCfg {
@@ -66,218 +74,65 @@ function loadCoinsLocal(): number {
   }
 }
 
-// ─── MINI PIXEL AVATAR (self-contained SVG) ───────────────────────────────────
-function MiniAvatar({ cfg, size = 80 }: { cfg: AvatarCfg; size?: number }) {
-  const S = size / 16,
-    px = (n: number) => n * S;
-  const DARK = "#1a0820",
-    WHITE = "#fffde7",
-    BLUE = "#38bdf8",
-    PINK = "#f472b6",
-    YELLOW = "#facc15",
-    RED = "#f87171";
+// ─── AVATAR IMAGE LOOKUP ──────────────────────────────────────────────────────
+function getAvatarSrc(cfg: AvatarCfg, mood: "happy" | "sad" = "happy"): string {
+  const charData = (AVATAR_IMAGES as any)[cfg.gender]?.[cfg.char];
+  if (!charData) return "";
+  const moodData =
+    charData[mood] ?? charData[mood === "happy" ? "sad" : "happy"] ?? {};
+  return moodData[cfg.color] ?? charData.base ?? "";
+}
+
+// ─── AVATAR IMAGE COMPONENT ───────────────────────────────────────────────────
+function AvatarImg({
+  cfg,
+  size = 90,
+  mood = "happy",
+}: {
+  cfg: AvatarCfg;
+  size?: number;
+  mood?: "happy" | "sad";
+}) {
+  const src = getAvatarSrc(cfg, mood);
   return (
     <div
       style={{
         width: size,
         height: size,
-        display: "inline-block",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
         animation: "avatarFloat 2.5s ease-in-out infinite",
+        flexShrink: 0,
       }}
     >
-      <svg
-        viewBox={`0 0 ${px(16)} ${px(16)}`}
-        width={size}
-        height={size}
-        style={{ imageRendering: "pixelated", display: "block" }}
-      >
-        <rect
-          x={px(2)}
-          y={px(2)}
-          width={px(12)}
-          height={px(13)}
-          fill={cfg.skinColor}
+      {src ? (
+        <img
+          src={src}
+          alt={`${cfg.gender} ${cfg.char} ${mood}`}
+          style={{
+            width: size,
+            height: size,
+            imageRendering: "pixelated",
+            objectFit: "contain",
+          }}
         />
-        <rect
-          x={px(2)}
-          y={px(1)}
-          width={px(12)}
-          height={px(3)}
-          fill={cfg.hairColor}
-        />
-        <rect
-          x={px(1)}
-          y={px(2)}
-          width={px(2)}
-          height={px(2)}
-          fill={cfg.hairColor}
-        />
-        <rect
-          x={px(13)}
-          y={px(2)}
-          width={px(2)}
-          height={px(2)}
-          fill={cfg.hairColor}
-        />
-        <rect
-          x={px(5)}
-          y={px(1)}
-          width={px(2)}
-          height={px(1)}
-          fill={cfg.hairColor}
-        />
-        <rect
-          x={px(9)}
-          y={px(0)}
-          width={px(2)}
-          height={px(2)}
-          fill={cfg.hairColor}
-        />
-        <rect
-          x={px(1)}
-          y={px(5)}
-          width={px(1)}
-          height={px(3)}
-          fill={cfg.skinColor}
-        />
-        <rect
-          x={px(14)}
-          y={px(5)}
-          width={px(1)}
-          height={px(3)}
-          fill={cfg.skinColor}
-        />
-        {/* Eyes */}
-        <rect x={px(3)} y={px(4)} width={px(4)} height={px(4)} fill={WHITE} />
-        <rect x={px(5)} y={px(5)} width={px(2)} height={px(2)} fill={DARK} />
-        <rect
-          x={px(5)}
-          y={px(6)}
-          width={px(1)}
-          height={px(1)}
-          fill={WHITE}
-          opacity={0.5}
-        />
-        <rect x={px(9)} y={px(4)} width={px(4)} height={px(4)} fill={WHITE} />
-        <rect x={px(11)} y={px(5)} width={px(2)} height={px(2)} fill={DARK} />
-        <rect
-          x={px(11)}
-          y={px(6)}
-          width={px(1)}
-          height={px(1)}
-          fill={WHITE}
-          opacity={0.5}
-        />
-        {/* Mouth */}
-        <rect x={px(5)} y={px(10)} width={px(6)} height={px(1)} fill={DARK} />
-        <rect x={px(4)} y={px(9)} width={px(1)} height={px(1)} fill={DARK} />
-        <rect x={px(11)} y={px(9)} width={px(1)} height={px(1)} fill={DARK} />
-        {/* Blush */}
-        <rect
-          x={px(3)}
-          y={px(8)}
-          width={px(2)}
-          height={px(1)}
-          fill={PINK}
-          opacity={0.3}
-        />
-        <rect
-          x={px(11)}
-          y={px(8)}
-          width={px(2)}
-          height={px(1)}
-          fill={PINK}
-          opacity={0.3}
-        />
-        {/* Accessories */}
-        {cfg.accessory === "glasses" && (
-          <>
-            <rect
-              x={px(3)}
-              y={px(5)}
-              width={px(4)}
-              height={px(3)}
-              fill="none"
-              stroke={DARK}
-              strokeWidth={px(0.4)}
-            />
-            <rect
-              x={px(9)}
-              y={px(5)}
-              width={px(4)}
-              height={px(3)}
-              fill="none"
-              stroke={DARK}
-              strokeWidth={px(0.4)}
-            />
-            <rect
-              x={px(7)}
-              y={px(6)}
-              width={px(2)}
-              height={px(1)}
-              fill={DARK}
-            />
-          </>
-        )}
-        {cfg.accessory === "crown" && (
-          <>
-            <rect
-              x={px(3)}
-              y={px(0)}
-              width={px(2)}
-              height={px(2)}
-              fill={YELLOW}
-            />
-            <rect
-              x={px(7)}
-              y={px(-1)}
-              width={px(2)}
-              height={px(3)}
-              fill={YELLOW}
-            />
-            <rect
-              x={px(11)}
-              y={px(0)}
-              width={px(2)}
-              height={px(2)}
-              fill={YELLOW}
-            />
-            <rect
-              x={px(3)}
-              y={px(1)}
-              width={px(10)}
-              height={px(1)}
-              fill={YELLOW}
-            />
-            <rect x={px(5)} y={px(0)} width={px(1)} height={px(1)} fill={RED} />
-            <rect
-              x={px(10)}
-              y={px(0)}
-              width={px(1)}
-              height={px(1)}
-              fill={BLUE}
-            />
-          </>
-        )}
-        {cfg.accessory === "headband" && (
-          <>
-            <rect
-              x={px(1)}
-              y={px(3)}
-              width={px(14)}
-              height={px(2)}
-              fill={PINK}
-            />
-            <rect
-              x={px(7)}
-              y={px(1)}
-              width={px(2)}
-              height={px(2)}
-              fill={PINK}
-            />
-          </>
-        )}
-      </svg>
+      ) : (
+        <div
+          style={{
+            width: size,
+            height: size,
+            background: "rgba(76,29,149,.2)",
+            border: "2px solid #4c1d95",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 24,
+          }}
+        >
+          👤
+        </div>
+      )}
     </div>
   );
 }
@@ -334,47 +189,38 @@ const S = `
   .section-header.expanded{margin-bottom:14px}
   .chevron{transition:transform .2s;font-size:10px;color:#4c1d95}
   .chevron.open{transform:rotate(90deg)}
-  .lm-root .toggle-track.tt-on  { background-color: #000000 !important; border-color: #000000 !important; }
-  .lm-root .toggle-track.tt-off { background-color: #ffffff !important; border-color: #000000 !important; }
-  .lm-root .toggle-track.tt-on  > div { background-color: #ffffff !important; }
-  .lm-root .toggle-track.tt-off > div { background-color: #000000 !important; }
-  .color-chip[data-color] { background: attr(data-color) !important; }
-  .color-chip { background: var(--chip-color, #888) !important; }
-  .lm-root .color-chip { background: var(--chip-color, #888) !important; }
-  .color-chip {
-    border: 2px solid #2d1060;
-    transition: transform .12s, box-shadow .12s, border-color .12s;
-    flex-shrink: 0;
+  .color-chip{
+    border:2px solid #2d1060;
+    transition:transform .12s,box-shadow .12s,border-color .12s;
+    flex-shrink:0;
   }
-  .swatch-wrap:hover .color-chip { transform: scale(1.1); }
-  .swatch-wrap.active .color-chip {
-    border-color: #fff !important;
-    box-shadow: 0 0 0 2px #7c3aed, 0 0 8px rgba(168,85,247,.4);
+  .swatch-wrap{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;}
+  .swatch-wrap:hover .color-chip{transform:scale(1.1);}
+  .swatch-wrap.active .color-chip{
+    border-color:#fff !important;
+    box-shadow:0 0 0 2px #7c3aed,0 0 8px rgba(168,85,247,.4);
   }
-  .lm-root .color-chip { background: revert !important; }
-  .lm-root .swatch-wrap.active .color-chip { border-color: #7c3aed !important; box-shadow: 0 0 0 2px #a855f7 !important; }
-  .swatch-wrap { display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer; }
-  .swatch-name {
-    font-family:'Press Start 2P',cursive; font-size:5px; text-align:center;
-    opacity:0; transform:translateY(-2px);
-    transition:opacity .15s, transform .15s; pointer-events:none;
-    white-space:nowrap;
+  .swatch-name{
+    font-family:'Press Start 2P',cursive;font-size:5px;text-align:center;
+    opacity:0;transform:translateY(-2px);
+    transition:opacity .15s,transform .15s;pointer-events:none;white-space:nowrap;
   }
-  .swatch-wrap:hover .swatch-name { opacity:1; transform:translateY(0); }
-  .swatch-wrap.active .swatch-name { opacity:1; transform:translateY(0); font-size:6px; }
-  .lm-root .avatar-card { background: linear-gradient(135deg,rgba(238,232,255,.6),rgba(255,255,255,.95)) !important; border-color: #7c3aed !important; box-shadow: 3px 3px 0 rgba(124,58,237,.15) !important; }
-  .lm-root .avatar-card .acc-btn { background: #ffffff !important; border-color: #d1d5db !important; color: #6b21a8 !important; }
-  .lm-root .avatar-card .acc-btn:hover { border-color: #7c3aed !important; }
-  .lm-root .avatar-card .acc-btn.active { background: #7c3aed !important; border-color: #a855f7 !important; color: #ffffff !important; }
-  .lm-root .avatar-card .avatar-save-btn { background: rgba(124,58,237,.1) !important; border-color: #7c3aed !important; color: #4c1d95 !important; }
-  .lm-root .avatar-card .avatar-save-btn.ok { background: rgba(20,83,45,.15) !important; border-color: #22c55e !important; color: #166534 !important; }
-  .lm-root .avatar-card .glowPulse-ref { animation: none !important; box-shadow: 0 2px 8px rgba(124,58,237,.15) !important; }
-  @keyframes avatarFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
-  @keyframes glowPulse{0%,100%{box-shadow:0 0 10px rgba(168,85,247,.25)}50%{box-shadow:0 0 24px rgba(168,85,247,.5)}}
-  .avatar-card{animation:glowPulse 2.5s ease-in-out infinite;}
-  .swatch{cursor:pointer;transition:transform .12s,box-shadow .12s;border:2px solid #2d1060;}
-  .swatch:hover{transform:scale(1.18);}
-  .swatch.active{transform:scale(1.22);border-color:#fff !important;box-shadow:0 0 0 2px #7c3aed;}
+  .swatch-wrap:hover .swatch-name{opacity:1;transform:translateY(0);}
+  .swatch-wrap.active .swatch-name{opacity:1;transform:translateY(0);font-size:6px;}
+  .char-btn{
+    border:2px solid #2d1060;background:rgba(8,3,24,.9);
+    cursor:pointer;transition:border-color .15s,background .15s;
+    padding:4px;display:flex;align-items:center;justify-content:center;
+  }
+  .char-btn:hover{border-color:#4c1d95;}
+  .char-btn.active{border-color:#a855f7;background:rgba(76,29,149,.3);box-shadow:0 0 8px rgba(168,85,247,.3);}
+  .gender-btn{
+    font-family:'Press Start 2P',cursive;font-size:8px;padding:8px 14px;
+    cursor:pointer;border:2px solid #2d1060;background:rgba(8,3,24,.9);color:#7c3aed;
+    transition:background .15s,border-color .15s,color .15s;flex:1;
+  }
+  .gender-btn:hover{border-color:#4c1d95;}
+  .gender-btn.active{background:#4c1d95;border-color:#c084fc;color:#fff;}
   .acc-btn{
     font-family:'Press Start 2P',cursive;font-size:7px;padding:7px 10px;
     cursor:pointer;border:2px solid #2d1060;background:rgba(8,3,24,.9);color:#7c3aed;
@@ -391,6 +237,9 @@ const S = `
   .avatar-save-btn:hover{filter:brightness(1.15);}
   .avatar-save-btn:active{transform:translateY(1px);}
   .avatar-save-btn.ok{border-color:#22c55e;background:rgba(20,83,45,.7);color:#86efac;animation:saved .4s ease}
+  @keyframes avatarFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+  @keyframes glowPulse{0%,100%{box-shadow:0 0 10px rgba(168,85,247,.25)}50%{box-shadow:0 0 24px rgba(168,85,247,.5)}}
+  .avatar-card{animation:glowPulse 2.5s ease-in-out infinite;}
 `;
 
 type FieldProps = {
@@ -426,25 +275,14 @@ function Field({ label, icon, children, delay = 0 }: FieldProps) {
   );
 }
 
-type SettingsProps = {
+const Settings: React.FC<{
   lightMode?: boolean;
   onToggleLightMode?: () => void;
-};
-
-const Settings: React.FC<SettingsProps> = ({
-  lightMode = false,
-  onToggleLightMode,
-}) => {
-  // Avatar
+}> = ({ lightMode = false, onToggleLightMode }) => {
   const [avatarCfg, setAvatarCfg] = useState<AvatarCfg>(loadAvatarLocal);
   const [avatarSaved, setAvatarSaved] = useState(false);
   const [coins] = useState(loadCoinsLocal);
-  function handleSaveAvatar() {
-    saveAvatarLocal(avatarCfg);
-    setAvatarSaved(true);
-    setTimeout(() => setAvatarSaved(false), 2200);
-    toast$("AVATAR SAVED!", "ok");
-  }
+
   // Profile fields
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -452,7 +290,6 @@ const Settings: React.FC<SettingsProps> = ({
   const [age, setAge] = useState("");
   const [school, setSchool] = useState("");
   const [bio, setBio] = useState("");
-  // Original values for dirty detection
   const [orig, setOrig] = useState({
     username: "",
     email: "",
@@ -461,7 +298,8 @@ const Settings: React.FC<SettingsProps> = ({
     school: "",
     bio: "",
   });
-  // Password change
+
+  // UI state
   const [showPwSection, setShowPwSection] = useState(false);
   const [currentPw, setCurrentPw] = useState("");
   const [newPw, setNewPw] = useState("");
@@ -471,11 +309,9 @@ const Settings: React.FC<SettingsProps> = ({
   const [showConfirmPw, setShowConfirmPw] = useState(false);
   const [pwShake, setPwShake] = useState(false);
   const [changingPw, setChangingPw] = useState(false);
-  // Notifications
   const [notifFriendReq, setNotifFriendReq] = useState(true);
   const [notifGroupInvite, setNotifGroupInvite] = useState(true);
   const [notifGameInvite, setNotifGameInvite] = useState(true);
-  // UI state
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -531,13 +367,11 @@ const Settings: React.FC<SettingsProps> = ({
         setSchool(vals.school);
         setBio(vals.bio);
         setOrig(vals);
-        const notifs = p.notifications || {};
-        if (notifs.friend_requests !== undefined)
-          setNotifFriendReq(notifs.friend_requests);
-        if (notifs.group_invites !== undefined)
-          setNotifGroupInvite(notifs.group_invites);
-        if (notifs.game_invites !== undefined)
-          setNotifGameInvite(notifs.game_invites);
+        if (p.notifications) {
+          setNotifFriendReq(p.notifications.friend_requests ?? true);
+          setNotifGroupInvite(p.notifications.group_invites ?? true);
+          setNotifGameInvite(p.notifications.game_invites ?? true);
+        }
         if (p.avatar_config) {
           setAvatarCfg(p.avatar_config);
           saveAvatarLocal(p.avatar_config);
@@ -550,34 +384,50 @@ const Settings: React.FC<SettingsProps> = ({
     }
   }
 
-  async function handleSave() {
-    if (!username.trim()) {
-      toast$("USERNAME REQUIRED", "err");
-      return;
-    }
-    if (!email.trim()) {
-      toast$("EMAIL REQUIRED", "err");
-      return;
-    }
-    const parsedAge = age ? parseInt(age, 10) : null;
-    if (age && isNaN(parsedAge!)) {
-      toast$("INVALID AGE", "err");
-      return;
-    }
-    setSaving(true);
+  // FIXED: This now saves to Supabase as well as local storage
+  async function handleSaveAvatar() {
+    setAvatarSaved(false);
     try {
       const user = await getCurrentUser();
       if (!user) {
         toast$("LOGIN REQUIRED", "err");
         return;
       }
+
+      // Update Database
+      const { error } = await supabase
+        .from("users")
+        .update({ avatar_config: avatarCfg })
+        .eq("id", user.id);
+
+      if (error) throw error;
+
+      // Update Local
+      saveAvatarLocal(avatarCfg);
+      setAvatarSaved(true);
+      setTimeout(() => setAvatarSaved(false), 2200);
+      toast$("AVATAR SAVED!", "ok");
+    } catch {
+      toast$("AVATAR SAVE FAILED", "err");
+    }
+  }
+
+  async function handleSave() {
+    if (!username.trim() || !email.trim()) {
+      toast$("REQUIRED FIELDS MISSING", "err");
+      return;
+    }
+    setSaving(true);
+    try {
+      const user = await getCurrentUser();
+      if (!user) throw new Error();
       const { error } = await supabase
         .from("users")
         .update({
           username: username.trim(),
           email: email.trim(),
           display_name: displayName.trim() || null,
-          age: parsedAge,
+          age: age ? parseInt(age, 10) : null,
           school: school.trim() || null,
           bio: bio.trim() || null,
           avatar_config: avatarCfg,
@@ -589,14 +439,7 @@ const Settings: React.FC<SettingsProps> = ({
         })
         .eq("id", user.id);
       if (error) throw error;
-      setOrig({
-        username: username.trim(),
-        email: email.trim(),
-        displayName: displayName.trim(),
-        age,
-        school: school.trim(),
-        bio: bio.trim(),
-      });
+      setOrig({ username, email, displayName, age, school, bio });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
       toast$("SETTINGS SAVED!", "ok");
@@ -607,75 +450,71 @@ const Settings: React.FC<SettingsProps> = ({
     }
   }
 
-  // ─── FIXED: handleChangePassword using re-auth ────────────────────────────
   async function handleChangePassword() {
-    if (!currentPw || !newPw || !confirmPw) {
+    if (!currentPw || !newPw || confirmPw !== newPw) {
       setPwShake(true);
       setTimeout(() => setPwShake(false), 400);
-      toast$("FILL ALL PASSWORD FIELDS", "err");
-      return;
-    }
-    if (newPw.length < 8) {
-      toast$("PASSWORD TOO SHORT (8+ CHARS)", "err");
-      return;
-    }
-    if (newPw !== confirmPw) {
-      setPwShake(true);
-      setTimeout(() => setPwShake(false), 400);
-      toast$("PASSWORDS DO NOT MATCH", "err");
+      toast$("INVALID PASSWORD INPUT", "err");
       return;
     }
     setChangingPw(true);
     try {
-      // Step 1: verify current password by re-authenticating
       const user = await getCurrentUser();
-      if (!user?.email) {
-        toast$("SESSION EXPIRED - RELOGIN", "err");
-        return;
-      }
-      const { error: signInError } = await supabase.auth.signInWithPassword({
+      if (!user?.email) throw new Error();
+      const { error: authErr } = await supabase.auth.signInWithPassword({
         email: user.email,
         password: currentPw,
       });
-      if (signInError) {
-        setPwShake(true);
-        setTimeout(() => setPwShake(false), 400);
-        toast$("CURRENT PASSWORD INCORRECT", "err");
-        return;
-      }
-
-      // Step 2: update to the new password
-      const { error: updateError } = await supabase.auth.updateUser({
+      if (authErr) throw authErr;
+      const { error: upErr } = await supabase.auth.updateUser({
         password: newPw,
       });
-      if (updateError) throw updateError;
-
+      if (upErr) throw upErr;
       setCurrentPw("");
       setNewPw("");
       setConfirmPw("");
       setShowPwSection(false);
-      toast$("PASSWORD CHANGED!", "ok");
-    } catch (e: any) {
-      const msg: string = e?.message || "";
-      if (
-        msg.toLowerCase().includes("weak") ||
-        msg.toLowerCase().includes("strength")
-      ) {
-        toast$("PASSWORD TOO WEAK", "err");
-      } else if (
-        msg.toLowerCase().includes("session") ||
-        msg.toLowerCase().includes("no user")
-      ) {
-        toast$("SESSION EXPIRED - RELOGIN", "err");
-      } else {
-        toast$(
-          msg ? `ERR: ${msg.slice(0, 18).toUpperCase()}` : "CHANGE FAILED",
-          "err",
-        );
-      }
+      toast$("PASSWORD UPDATED!", "ok");
+    } catch {
+      toast$("AUTH ERROR", "err");
     } finally {
       setChangingPw(false);
     }
+  }
+
+  const availableColors = HAIR_COLORS.filter(({ key }) => {
+    const charData = (AVATAR_IMAGES as any)[avatarCfg.gender]?.[avatarCfg.char];
+    return charData?.happy?.[key] || charData?.sad?.[key];
+  });
+
+  function setCharSafe(char: AvatarChar) {
+    setAvatarCfg((prev) => {
+      const moodData = (AVATAR_IMAGES as any)[prev.gender]?.[char];
+      const colors = HAIR_COLORS.filter(
+        ({ key }) => moodData?.happy?.[key] || moodData?.sad?.[key],
+      );
+      const colorAvailable = colors.some((c) => c.key === prev.color);
+      return {
+        ...prev,
+        char,
+        color: colorAvailable ? prev.color : (colors[0]?.key ?? prev.color),
+      };
+    });
+  }
+
+  function setGenderSafe(gender: AvatarGender) {
+    setAvatarCfg((prev) => {
+      const moodData = (AVATAR_IMAGES as any)[gender]?.[prev.char];
+      const colors = HAIR_COLORS.filter(
+        ({ key }) => moodData?.happy?.[key] || moodData?.sad?.[key],
+      );
+      const colorAvailable = colors.some((c) => c.key === prev.color);
+      return {
+        ...prev,
+        gender,
+        color: colorAvailable ? prev.color : (colors[0]?.key ?? prev.color),
+      };
+    });
   }
 
   if (loading)
@@ -748,7 +587,6 @@ const Settings: React.FC<SettingsProps> = ({
         </span>
       </div>
 
-      {/* ═══ AVATAR PROFILE CARD ═══ */}
       <div
         className="section-card avatar-card"
         style={{
@@ -778,7 +616,7 @@ const Settings: React.FC<SettingsProps> = ({
           }}
         >
           <div style={{ position: "relative", flexShrink: 0 }}>
-            <MiniAvatar cfg={avatarCfg} size={90} />
+            <AvatarImg cfg={avatarCfg} size={90} mood="happy" />
             <div
               style={{
                 position: "absolute",
@@ -845,31 +683,6 @@ const Settings: React.FC<SettingsProps> = ({
                   {coins.toLocaleString()}
                 </span>
               </div>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 5,
-                  padding: "5px 9px",
-                  background: lightMode
-                    ? "rgba(124,58,237,.08)"
-                    : "rgba(168,85,247,.08)",
-                  border: lightMode
-                    ? "1px solid rgba(124,58,237,.25)"
-                    : "1px solid rgba(168,85,247,.2)",
-                }}
-              >
-                <span style={{ fontSize: 11 }}>🎮</span>
-                <span
-                  className="pf"
-                  style={{
-                    fontSize: 7,
-                    color: lightMode ? "#4c1d95" : "#a855f7",
-                  }}
-                >
-                  PLAYER
-                </span>
-              </div>
             </div>
           </div>
         </div>
@@ -881,7 +694,6 @@ const Settings: React.FC<SettingsProps> = ({
           }}
         />
 
-        {/* Hair color */}
         <div style={{ marginBottom: 16 }}>
           <div
             className="pf"
@@ -891,61 +703,22 @@ const Settings: React.FC<SettingsProps> = ({
               marginBottom: 10,
             }}
           >
-            HAIR COLOR
+            GENDER
           </div>
-          <div
-            className="pf"
-            style={{
-              fontSize: 7,
-              color: lightMode ? "#7c3aed" : "#a855f7",
-              marginBottom: 8,
-              minHeight: 14,
-            }}
-          >
-            {HAIR_COLORS.find((h) => h.hex === avatarCfg.hairColor)?.name || ""}
-          </div>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            {HAIR_COLORS.map(({ hex, name }) => (
-              <div
-                key={hex}
-                className={`swatch-wrap ${avatarCfg.hairColor === hex ? "active" : ""}`}
-                onClick={() => setAvatarCfg((a) => ({ ...a, hairColor: hex }))}
-                title={name}
+          <div style={{ display: "flex", gap: 8 }}>
+            {(["female", "male"] as AvatarGender[]).map((g) => (
+              <button
+                key={g}
+                type="button"
+                className={`gender-btn ${avatarCfg.gender === g ? "active" : ""}`}
+                onClick={() => setGenderSafe(g)}
               >
-                <div
-                  className="color-chip"
-                  style={{
-                    width: 30,
-                    height: 30,
-                    ["--chip-color" as any]: hex,
-                    backgroundColor: hex,
-                    background: hex,
-                    borderColor:
-                      avatarCfg.hairColor === hex
-                        ? lightMode
-                          ? "#7c3aed"
-                          : "#fff"
-                        : lightMode
-                          ? "#d1d5db"
-                          : "#2d1060",
-                    boxShadow:
-                      avatarCfg.hairColor === hex
-                        ? `0 0 0 2px ${lightMode ? "#a855f7" : "#7c3aed"}, 0 0 8px rgba(168,85,247,.4)`
-                        : "none",
-                  }}
-                />
-                <span
-                  className="swatch-name"
-                  style={{ color: lightMode ? "#4c1d95" : "#c084fc" }}
-                >
-                  {name}
-                </span>
-              </div>
+                {g === "female" ? "👧 GIRL" : "👦 BOY"}
+              </button>
             ))}
           </div>
         </div>
 
-        {/* Skin tone */}
         <div style={{ marginBottom: 16 }}>
           <div
             className="pf"
@@ -955,61 +728,52 @@ const Settings: React.FC<SettingsProps> = ({
               marginBottom: 10,
             }}
           >
-            SKIN TONE
+            CHARACTER STYLE
           </div>
-          <div
-            className="pf"
-            style={{
-              fontSize: 7,
-              color: lightMode ? "#7c3aed" : "#a855f7",
-              marginBottom: 8,
-              minHeight: 14,
-            }}
-          >
-            {SKIN_TONES.find((s) => s.hex === avatarCfg.skinColor)?.name || ""}
-          </div>
-          <div style={{ display: "flex", gap: 10 }}>
-            {SKIN_TONES.map(({ hex, name }) => (
-              <div
-                key={hex}
-                className={`swatch-wrap ${avatarCfg.skinColor === hex ? "active" : ""}`}
-                onClick={() => setAvatarCfg((a) => ({ ...a, skinColor: hex }))}
-                title={name}
-              >
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {(["1", "2", "3", "4"] as AvatarChar[]).map((c) => {
+              const charData = (AVATAR_IMAGES as any)[avatarCfg.gender]?.[c];
+              const hasImages =
+                charData?.happy && Object.keys(charData.happy).length > 0;
+              const previewSrc =
+                charData?.happy?.[avatarCfg.color] ?? charData?.base ?? "";
+              return (
                 <div
-                  className="color-chip"
+                  key={c}
+                  className={`char-btn ${avatarCfg.char === c ? "active" : ""}`}
                   style={{
-                    width: 38,
-                    height: 38,
-                    ["--chip-color" as any]: hex,
-                    backgroundColor: hex,
-                    background: hex,
-                    borderColor:
-                      avatarCfg.skinColor === hex
-                        ? lightMode
-                          ? "#7c3aed"
-                          : "#fff"
-                        : lightMode
-                          ? "#d1d5db"
-                          : "#2d1060",
-                    boxShadow:
-                      avatarCfg.skinColor === hex
-                        ? `0 0 0 2px ${lightMode ? "#a855f7" : "#7c3aed"}, 0 0 8px rgba(168,85,247,.4)`
-                        : "none",
+                    opacity: hasImages ? 1 : 0.35,
+                    cursor: hasImages ? "pointer" : "not-allowed",
+                    width: 56,
+                    height: 56,
                   }}
-                />
-                <span
-                  className="swatch-name"
-                  style={{ color: lightMode ? "#4c1d95" : "#c084fc" }}
+                  onClick={() => hasImages && setCharSafe(c)}
                 >
-                  {name}
-                </span>
-              </div>
-            ))}
+                  {previewSrc ? (
+                    <img
+                      src={previewSrc}
+                      alt={`Style ${c}`}
+                      style={{
+                        width: 48,
+                        height: 48,
+                        imageRendering: "pixelated",
+                        objectFit: "contain",
+                      }}
+                    />
+                  ) : (
+                    <span
+                      className="pf"
+                      style={{ fontSize: 10, color: "#4c1d95" }}
+                    >
+                      {c}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
 
-        {/* Accessory */}
         <div style={{ marginBottom: 20 }}>
           <div
             className="pf"
@@ -1019,24 +783,38 @@ const Settings: React.FC<SettingsProps> = ({
               marginBottom: 10,
             }}
           >
-            ACCESSORY
+            COLOR
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {ACCESSORIES.map((acc) => (
-              <button
-                key={acc}
-                type="button"
-                className={`acc-btn ${avatarCfg.accessory === acc ? "active" : ""}`}
-                onClick={() => setAvatarCfg((a) => ({ ...a, accessory: acc }))}
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            {availableColors.map(({ key, hex, name }) => (
+              <div
+                key={key}
+                className={`swatch-wrap ${avatarCfg.color === key ? "active" : ""}`}
+                onClick={() => setAvatarCfg((a) => ({ ...a, color: key }))}
               >
-                {acc === "none"
-                  ? "NONE"
-                  : acc === "glasses"
-                    ? "👓 GLASSES"
-                    : acc === "crown"
-                      ? "👑 CROWN"
-                      : "🎀 HEADBAND"}
-              </button>
+                <div
+                  className="color-chip"
+                  style={{
+                    width: 30,
+                    height: 30,
+                    backgroundColor: hex,
+                    borderColor:
+                      avatarCfg.color === key
+                        ? lightMode
+                          ? "#7c3aed"
+                          : "#fff"
+                        : lightMode
+                          ? "#d1d5db"
+                          : "#2d1060",
+                  }}
+                />
+                <span
+                  className="swatch-name"
+                  style={{ color: lightMode ? "#4c1d95" : "#c084fc" }}
+                >
+                  {name}
+                </span>
+              </div>
             ))}
           </div>
         </div>
@@ -1057,7 +835,6 @@ const Settings: React.FC<SettingsProps> = ({
         </button>
       </div>
 
-      {/* Unsaved changes banner */}
       {isDirty && (
         <div className="unsaved-banner">
           <div style={{ width: 6, height: 6, background: "#f59e0b" }} />
@@ -1067,7 +844,6 @@ const Settings: React.FC<SettingsProps> = ({
         </div>
       )}
 
-      {/* Account section */}
       <div className="section-card">
         <div
           className="corner-dot"
@@ -1089,7 +865,6 @@ const Settings: React.FC<SettingsProps> = ({
               className={`s-input ${username !== orig.username ? "changed" : ""}`}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              autoComplete="username"
             />
           </Field>
           <Field
@@ -1102,7 +877,6 @@ const Settings: React.FC<SettingsProps> = ({
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
             />
           </Field>
           <Field
@@ -1114,13 +888,11 @@ const Settings: React.FC<SettingsProps> = ({
               className={`s-input ${displayName !== orig.displayName ? "changed" : ""}`}
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="OPTIONAL"
             />
           </Field>
         </div>
       </div>
 
-      {/* Personal section */}
       <div className="section-card">
         <div
           className="corner-dot"
@@ -1143,9 +915,6 @@ const Settings: React.FC<SettingsProps> = ({
               type="number"
               value={age}
               onChange={(e) => setAge(e.target.value)}
-              placeholder="YOUR AGE"
-              min={1}
-              max={120}
             />
           </Field>
           <Field
@@ -1157,7 +926,6 @@ const Settings: React.FC<SettingsProps> = ({
               className={`s-input ${school !== orig.school ? "changed" : ""}`}
               value={school}
               onChange={(e) => setSchool(e.target.value)}
-              placeholder="YOUR SCHOOL"
             />
           </Field>
           <div className="fade-up" style={{ animationDelay: "210ms" }}>
@@ -1167,28 +935,17 @@ const Settings: React.FC<SettingsProps> = ({
             >
               BIO
             </div>
-            <div style={{ position: "relative" }}>
-              <div
-                style={{ position: "absolute", left: 11, top: 13, zIndex: 1 }}
-              >
-                <BookOpen size={11} color="#3b1d6a" />
-              </div>
-              <textarea
-                className={`s-textarea ${bio !== orig.bio ? "changed" : ""}`}
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
-                rows={3}
-                placeholder="TELL US ABOUT YOURSELF..."
-                style={{
-                  borderColor: bio !== orig.bio ? "#f59e0b" : undefined,
-                }}
-              />
-            </div>
+            <textarea
+              className={`s-textarea ${bio !== orig.bio ? "changed" : ""}`}
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              rows={3}
+              placeholder="TELL US ABOUT YOURSELF..."
+            />
           </div>
         </div>
       </div>
 
-      {/* Notifications section */}
       <div className="section-card">
         <div
           className="corner-dot"
@@ -1262,7 +1019,6 @@ const Settings: React.FC<SettingsProps> = ({
                       : "#1a0a35",
                   border: `2px solid ${val ? (lightMode ? "#000000" : "#22c55e") : lightMode ? "#000000" : "#2d1060"}`,
                   position: "relative",
-                  transition: "all .2s",
                 }}
               >
                 <div
@@ -1288,7 +1044,6 @@ const Settings: React.FC<SettingsProps> = ({
         </div>
       </div>
 
-      {/* Appearance section */}
       <div
         className="section-card"
         style={{ borderColor: lightMode ? "#000000" : "#1a0a35" }}
@@ -1298,20 +1053,12 @@ const Settings: React.FC<SettingsProps> = ({
           style={{ top: 0, left: 0, background: "#fbbf24" }}
         />
         <div
-          className="corner-dot"
-          style={{ top: 0, right: 0, background: "#818cf8" }}
-        />
-        <div
           className="pf"
           style={{ fontSize: 7, color: "#2d1060", marginBottom: 14 }}
         >
           ◆ APPEARANCE
         </div>
-        <div
-          className="toggle-row"
-          onClick={onToggleLightMode}
-          style={{ cursor: "pointer" }}
-        >
+        <div className="toggle-row" onClick={onToggleLightMode}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div
               style={{
@@ -1337,31 +1084,20 @@ const Settings: React.FC<SettingsProps> = ({
                 {lightMode ? "LIGHT MODE" : "DARK MODE"}
               </div>
               <div className="pf" style={{ fontSize: 6, color: "#4c1d95" }}>
-                {lightMode ? "BRIGHT & CLEAN THEME" : "EASY ON THE EYES THEME"}
+                {lightMode ? "BRIGHT & CLEAN" : "EASY ON EYES"}
               </div>
             </div>
           </div>
           <div
-            className={`toggle-track ${lightMode ? "tt-on" : "tt-off"}`}
+            className="toggle-track"
             style={{
               width: 44,
               height: 22,
               background: lightMode ? "#000000" : "#1a0a35",
               border: `2px solid ${lightMode ? "#000000" : "#4c1d95"}`,
               position: "relative",
-              transition: "background .25s, border-color .25s",
             }}
           >
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                background: lightMode
-                  ? "linear-gradient(90deg,#000000,#374151)"
-                  : "linear-gradient(90deg,#1a0a35,#2d1060)",
-                transition: "background .25s",
-              }}
-            />
             <div
               style={{
                 position: "absolute",
@@ -1370,14 +1106,13 @@ const Settings: React.FC<SettingsProps> = ({
                 width: 12,
                 height: 12,
                 background: lightMode ? "#ffffff" : "#4c1d95",
-                transition: "left .22s cubic-bezier(0.4,0,0.2,1)",
+                transition: "left .22s",
               }}
             />
           </div>
         </div>
       </div>
 
-      {/* Password section */}
       <div
         className="section-card"
         style={{ borderColor: showPwSection ? "#ef4444" : "#1a0a35" }}
@@ -1387,282 +1122,69 @@ const Settings: React.FC<SettingsProps> = ({
           style={{ top: 0, left: 0, background: "#ef4444" }}
         />
         <div
-          className={`section-header ${showPwSection ? "expanded" : ""}`}
-          onClick={() => setShowPwSection((v) => !v)}
+          className="section-header"
+          onClick={() => setShowPwSection(!showPwSection)}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <Lock size={11} color="#f87171" />
             <span className="pf" style={{ fontSize: 7, color: "#f87171" }}>
-              ◆ CHANGE PASSWORD
+              CHANGE PASSWORD
             </span>
           </div>
           <span className={`chevron ${showPwSection ? "open" : ""}`}>▶</span>
         </div>
-
         {showPwSection && (
           <div
             className={`fade-up ${pwShake ? "shk" : ""}`}
-            style={{ display: "flex", flexDirection: "column", gap: 10 }}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+              marginTop: 14,
+            }}
           >
-            {/* Current Password */}
-            <div>
-              <div
-                className="pf"
-                style={{ fontSize: 7, color: "#4c1d95", marginBottom: 6 }}
-              >
-                CURRENT PASSWORD
-              </div>
-              <div style={{ position: "relative" }}>
-                <div
-                  style={{
-                    position: "absolute",
-                    left: 11,
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    zIndex: 1,
-                  }}
-                >
-                  <Lock size={11} color="#3b1d6a" />
-                </div>
-                <input
-                  className="s-input"
-                  type={showCurrPw ? "text" : "password"}
-                  value={currentPw}
-                  onChange={(e) => setCurrentPw(e.target.value)}
-                  placeholder="••••••••"
-                  autoComplete="current-password"
-                  style={{ paddingRight: 36 }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowCurrPw((v) => !v)}
-                  style={{
-                    position: "absolute",
-                    right: 11,
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    color: "#4c1d95",
-                    padding: 0,
-                    display: "flex",
-                  }}
-                >
-                  {showCurrPw ? <EyeOff size={12} /> : <Eye size={12} />}
-                </button>
-              </div>
-            </div>
-
-            {/* New Password */}
-            <div>
-              <div
-                className="pf"
-                style={{ fontSize: 7, color: "#4c1d95", marginBottom: 6 }}
-              >
-                NEW PASSWORD (8+ CHARS)
-              </div>
-              <div style={{ position: "relative" }}>
-                <div
-                  style={{
-                    position: "absolute",
-                    left: 11,
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    zIndex: 1,
-                  }}
-                >
-                  <Lock size={11} color="#3b1d6a" />
-                </div>
-                <input
-                  className="s-input"
-                  type={showNewPw ? "text" : "password"}
-                  value={newPw}
-                  onChange={(e) => setNewPw(e.target.value)}
-                  placeholder="••••••••"
-                  autoComplete="new-password"
-                  style={{ paddingRight: 36 }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowNewPw((v) => !v)}
-                  style={{
-                    position: "absolute",
-                    right: 11,
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    color: "#4c1d95",
-                    padding: 0,
-                    display: "flex",
-                  }}
-                >
-                  {showNewPw ? <EyeOff size={12} /> : <Eye size={12} />}
-                </button>
-              </div>
-            </div>
-
-            {/* Confirm Password */}
-            <div>
-              <div
-                className="pf"
-                style={{ fontSize: 7, color: "#4c1d95", marginBottom: 6 }}
-              >
-                CONFIRM NEW PASSWORD
-              </div>
-              <div style={{ position: "relative" }}>
-                <div
-                  style={{
-                    position: "absolute",
-                    left: 11,
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    zIndex: 1,
-                  }}
-                >
-                  <Lock size={11} color="#3b1d6a" />
-                </div>
-                <input
-                  className="s-input"
-                  type={showConfirmPw ? "text" : "password"}
-                  value={confirmPw}
-                  onChange={(e) => setConfirmPw(e.target.value)}
-                  placeholder="••••••••"
-                  autoComplete="new-password"
-                  style={{ paddingRight: 36 }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPw((v) => !v)}
-                  style={{
-                    position: "absolute",
-                    right: 11,
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    color: "#4c1d95",
-                    padding: 0,
-                    display: "flex",
-                  }}
-                >
-                  {showConfirmPw ? <EyeOff size={12} /> : <Eye size={12} />}
-                </button>
-              </div>
-            </div>
-
-            {/* Password strength indicator */}
-            {newPw && (
-              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                {[4, 6, 8, 12].map((len, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      flex: 1,
-                      height: 4,
-                      background:
-                        newPw.length >= len
-                          ? ["#ef4444", "#f59e0b", "#22c55e", "#22d3ee"][i]
-                          : "#1a0a35",
-                      transition: "background .2s",
-                    }}
-                  />
-                ))}
-                <span
-                  className="pf"
-                  style={{
-                    fontSize: 6,
-                    color: "#4c1d95",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {newPw.length < 4
-                    ? "WEAK"
-                    : newPw.length < 6
-                      ? "FAIR"
-                      : newPw.length < 8
-                        ? "GOOD"
-                        : "STRONG"}
-                </span>
-              </div>
-            )}
-
+            <input
+              className="s-input"
+              type={showCurrPw ? "text" : "password"}
+              placeholder="CURRENT PASSWORD"
+              value={currentPw}
+              onChange={(e) => setCurrentPw(e.target.value)}
+            />
+            <input
+              className="s-input"
+              type={showNewPw ? "text" : "password"}
+              placeholder="NEW PASSWORD (8+)"
+              value={newPw}
+              onChange={(e) => setNewPw(e.target.value)}
+            />
             <button
-              type="button"
+              className="acc-btn"
               onClick={handleChangePassword}
               disabled={changingPw}
-              style={{
-                padding: "10px",
-                background: "rgba(127,29,29,.4)",
-                border: "2px solid #ef4444",
-                color: "#f87171",
-                cursor: "pointer",
-                fontFamily: "'Press Start 2P',cursive",
-                fontSize: 9,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-                transition: "filter .15s",
-              }}
             >
-              {changingPw ? (
-                <>
-                  <div
-                    style={{
-                      width: 8,
-                      height: 8,
-                      border: "2px solid #fff",
-                      borderTopColor: "transparent",
-                      animation: "spin 1s linear infinite",
-                    }}
-                  />
-                  CHANGING...
-                </>
-              ) : (
-                <>
-                  <Lock size={10} /> CHANGE PASSWORD
-                </>
-              )}
+              {changingPw ? "SYNCING..." : "UPDATE PASSWORD"}
             </button>
           </div>
         )}
       </div>
 
-      {/* Save */}
-      <div className="fade-up" style={{ animationDelay: "240ms" }}>
-        <button
-          className={`save-btn ${saved ? "ok" : ""}`}
-          onClick={handleSave}
-          disabled={saving}
-        >
-          {saving ? (
-            <>
-              <div
-                style={{
-                  width: 10,
-                  height: 10,
-                  border: "2px solid #fff",
-                  borderTopColor: "transparent",
-                  animation: "spin 1s linear infinite",
-                }}
-              />
-              SAVING...
-            </>
-          ) : saved ? (
-            <>
-              <Check size={13} /> SAVED!
-            </>
-          ) : (
-            <>
-              <Save size={13} /> {isDirty ? "SAVE CHANGES ●" : "SAVE SETTINGS"}
-            </>
-          )}
-        </button>
-      </div>
+      <button
+        className={`save-btn ${saved ? "ok" : ""}`}
+        onClick={handleSave}
+        disabled={saving}
+      >
+        {saving ? (
+          "SAVING..."
+        ) : saved ? (
+          <>
+            <Check size={13} /> SAVED!
+          </>
+        ) : (
+          <>
+            <Save size={13} /> SAVE SETTINGS
+          </>
+        )}
+      </button>
     </div>
   );
 };

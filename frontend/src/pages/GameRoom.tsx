@@ -18,6 +18,7 @@ import {
   VolumeX,
   ShoppingBag,
 } from "lucide-react";
+import { AVATAR_IMAGES } from "../assets/AvatarImages";
 
 type DbChoice = {
   id: string;
@@ -36,43 +37,35 @@ type PlayerScore = {
 };
 type AvatarEmotion = "idle" | "correct" | "wrong" | "win" | "lose" | "thinking";
 type Difficulty = "easy" | "normal" | "hard";
-type GamePhase = "avatar" | "shop" | "playing";
-type AvatarConfig = {
-  hairColor: string;
-  skinColor: string;
-  accessory: "none" | "glasses" | "crown" | "headband";
+type GamePhase = "shop" | "playing";
+
+type AvatarCfg = {
+  gender: "female" | "male";
+  char: "1" | "2" | "3" | "4";
+  color:
+    | "purple"
+    | "sky"
+    | "pink"
+    | "red"
+    | "mint"
+    | "gold"
+    | "white"
+    | "black";
 };
 
-const HAIR_COLORS = [
-  "#a855f7",
-  "#38bdf8",
-  "#f472b6",
-  "#ef4444",
-  "#4ade80",
-  "#facc15",
-  "#f5f5f5",
-  "#1a0820",
-];
-const SKIN_TONES = ["#f4c87a", "#e8a96a", "#c8854a", "#8b5e3c"];
-const ACCESSORIES = ["none", "glasses", "crown", "headband"] as const;
-
-const DEFAULT_AVATAR: AvatarConfig = {
-  hairColor: "#a855f7",
-  skinColor: "#f4c87a",
-  accessory: "none",
+const DEFAULT_AVATAR: AvatarCfg = {
+  gender: "female",
+  char: "1",
+  color: "purple",
 };
-function loadSavedAvatar(): AvatarConfig | null {
+
+function loadSavedAvatar(): AvatarCfg {
   try {
     const r = localStorage.getItem("tini_avatar");
-    return r ? JSON.parse(r) : null;
+    return r ? JSON.parse(r) : DEFAULT_AVATAR;
   } catch {
-    return null;
+    return DEFAULT_AVATAR;
   }
-}
-function persistAvatar(cfg: AvatarConfig) {
-  try {
-    localStorage.setItem("tini_avatar", JSON.stringify(cfg));
-  } catch {}
 }
 
 const COMBO_MSGS: Record<number, { text: string; color: string; sub: string }> =
@@ -160,33 +153,26 @@ const GLOBAL_CSS = `
   .door-easy  {animation:easyGlow   2.5s ease-in-out infinite;}
   .door-normal{animation:normalGlow 1.8s ease-in-out infinite;}
   .door-hard  {animation:hardGlow   1.2s ease-in-out infinite;}
-  .swatch{transition:transform 0.1s,box-shadow 0.1s;cursor:pointer;}
-  .swatch:hover{transform:scale(1.15);}
-  .swatch.active{transform:scale(1.2);box-shadow:0 0 0 3px #fff,0 0 0 5px #7c3aed;}
 `;
 
-// ─── PIXEL AVATAR ──────────────────────────────────────────────────────────────
-function PixelAvatar({
+// ─── GAME AVATAR ──────────────────────────────────────────────────────────────
+function GameAvatar({
   emotion,
   size = 64,
-  hairColor = "#a855f7",
-  skinColor = "#f4c87a",
-  accessory = "none",
+  cfg,
 }: {
   emotion: AvatarEmotion;
   size?: number;
-  hairColor?: string;
-  skinColor?: string;
-  accessory?: string;
+  cfg: AvatarCfg;
 }) {
-  const S = size / 16;
-  const px = (n: number) => n * S;
-  const DARK = "#1a0820",
-    WHITE = "#fffde7",
-    BLUE = "#38bdf8",
-    PINK = "#f472b6",
-    YELLOW = "#facc15",
-    RED = "#f87171";
+  const mood = emotion === "wrong" || emotion === "lose" ? "sad" : "happy";
+  const charData = (AVATAR_IMAGES as any)[cfg.gender]?.[cfg.char];
+  const src =
+    charData?.[mood]?.[cfg.color] ??
+    charData?.["happy"]?.[cfg.color] ??
+    charData?.base ??
+    "";
+
   const animClass =
     emotion === "win"
       ? "a-bounce"
@@ -198,426 +184,21 @@ function PixelAvatar({
             ? "a-float"
             : "";
 
-  const Eyes = () => {
-    if (emotion === "win" || emotion === "correct")
-      return (
-        <>
-          <rect x={px(4)} y={px(5)} width={px(3)} height={px(1)} fill={DARK} />
-          <rect x={px(4)} y={px(6)} width={px(1)} height={px(1)} fill={DARK} />
-          <rect x={px(6)} y={px(6)} width={px(1)} height={px(1)} fill={DARK} />
-          <rect x={px(9)} y={px(5)} width={px(3)} height={px(1)} fill={DARK} />
-          <rect x={px(9)} y={px(6)} width={px(1)} height={px(1)} fill={DARK} />
-          <rect x={px(11)} y={px(6)} width={px(1)} height={px(1)} fill={DARK} />
-        </>
-      );
-    if (emotion === "wrong")
-      return (
-        <>
-          <rect x={px(3)} y={px(4)} width={px(4)} height={px(4)} fill={WHITE} />
-          <rect x={px(4)} y={px(5)} width={px(2)} height={px(2)} fill={DARK} />
-          <rect x={px(9)} y={px(4)} width={px(4)} height={px(4)} fill={WHITE} />
-          <rect x={px(10)} y={px(5)} width={px(2)} height={px(2)} fill={DARK} />
-        </>
-      );
-    if (emotion === "lose")
-      return (
-        <>
-          <rect x={px(3)} y={px(4)} width={px(1)} height={px(1)} fill={RED} />
-          <rect x={px(5)} y={px(4)} width={px(1)} height={px(1)} fill={RED} />
-          <rect x={px(4)} y={px(5)} width={px(1)} height={px(1)} fill={RED} />
-          <rect x={px(3)} y={px(6)} width={px(1)} height={px(1)} fill={RED} />
-          <rect x={px(5)} y={px(6)} width={px(1)} height={px(1)} fill={RED} />
-          <rect x={px(9)} y={px(4)} width={px(1)} height={px(1)} fill={RED} />
-          <rect x={px(11)} y={px(4)} width={px(1)} height={px(1)} fill={RED} />
-          <rect x={px(10)} y={px(5)} width={px(1)} height={px(1)} fill={RED} />
-          <rect x={px(9)} y={px(6)} width={px(1)} height={px(1)} fill={RED} />
-          <rect x={px(11)} y={px(6)} width={px(1)} height={px(1)} fill={RED} />
-        </>
-      );
-    if (emotion === "thinking")
-      return (
-        <>
-          <rect x={px(3)} y={px(6)} width={px(4)} height={px(1)} fill={DARK} />
-          <rect x={px(4)} y={px(5)} width={px(2)} height={px(1)} fill={DARK} />
-          <rect x={px(9)} y={px(6)} width={px(4)} height={px(1)} fill={DARK} />
-          <rect x={px(10)} y={px(5)} width={px(2)} height={px(1)} fill={DARK} />
-        </>
-      );
-    return (
-      <>
-        <rect x={px(3)} y={px(4)} width={px(4)} height={px(4)} fill={WHITE} />
-        <rect x={px(5)} y={px(5)} width={px(2)} height={px(2)} fill={DARK} />
-        <rect
-          x={px(5)}
-          y={px(6)}
-          width={px(1)}
-          height={px(1)}
-          fill={WHITE}
-          opacity={0.5}
-        />
-        <rect x={px(9)} y={px(4)} width={px(4)} height={px(4)} fill={WHITE} />
-        <rect x={px(11)} y={px(5)} width={px(2)} height={px(2)} fill={DARK} />
-        <rect
-          x={px(11)}
-          y={px(6)}
-          width={px(1)}
-          height={px(1)}
-          fill={WHITE}
-          opacity={0.5}
-        />
-      </>
-    );
-  };
-
-  const Mouth = () => {
-    if (emotion === "win")
-      return (
-        <>
-          <rect
-            x={px(3)}
-            y={px(10)}
-            width={px(10)}
-            height={px(1)}
-            fill={DARK}
-          />
-          <rect x={px(2)} y={px(9)} width={px(1)} height={px(2)} fill={DARK} />
-          <rect x={px(13)} y={px(9)} width={px(1)} height={px(2)} fill={DARK} />
-          <rect x={px(3)} y={px(11)} width={px(10)} height={px(2)} fill={RED} />
-          <rect
-            x={px(5)}
-            y={px(11)}
-            width={px(6)}
-            height={px(1)}
-            fill={WHITE}
-          />
-        </>
-      );
-    if (emotion === "correct")
-      return (
-        <>
-          <rect x={px(4)} y={px(10)} width={px(8)} height={px(1)} fill={DARK} />
-          <rect x={px(3)} y={px(9)} width={px(1)} height={px(1)} fill={DARK} />
-          <rect x={px(12)} y={px(9)} width={px(1)} height={px(1)} fill={DARK} />
-          <rect x={px(4)} y={px(11)} width={px(8)} height={px(1)} fill={RED} />
-        </>
-      );
-    if (emotion === "wrong" || emotion === "lose")
-      return (
-        <>
-          <rect x={px(4)} y={px(11)} width={px(8)} height={px(1)} fill={DARK} />
-          <rect x={px(3)} y={px(10)} width={px(1)} height={px(1)} fill={DARK} />
-          <rect
-            x={px(12)}
-            y={px(10)}
-            width={px(1)}
-            height={px(1)}
-            fill={DARK}
-          />
-          <rect x={px(5)} y={px(12)} width={px(2)} height={px(1)} fill={DARK} />
-          <rect x={px(9)} y={px(12)} width={px(2)} height={px(1)} fill={DARK} />
-        </>
-      );
-    if (emotion === "thinking")
-      return (
-        <>
-          <rect x={px(7)} y={px(10)} width={px(4)} height={px(1)} fill={DARK} />
-          <rect x={px(7)} y={px(11)} width={px(1)} height={px(1)} fill={DARK} />
-        </>
-      );
-    return (
-      <>
-        <rect x={px(5)} y={px(10)} width={px(6)} height={px(1)} fill={DARK} />
-        <rect x={px(4)} y={px(9)} width={px(1)} height={px(1)} fill={DARK} />
-        <rect x={px(11)} y={px(9)} width={px(1)} height={px(1)} fill={DARK} />
-      </>
-    );
-  };
-
-  const Extras = () => {
-    if (emotion === "win")
-      return (
-        <>
-          <rect
-            x={px(0)}
-            y={px(1)}
-            width={px(1)}
-            height={px(1)}
-            fill={YELLOW}
-          />
-          <rect
-            x={px(1)}
-            y={px(0)}
-            width={px(1)}
-            height={px(1)}
-            fill={YELLOW}
-          />
-          <rect
-            x={px(2)}
-            y={px(1)}
-            width={px(1)}
-            height={px(1)}
-            fill={YELLOW}
-          />
-          <rect
-            x={px(15)}
-            y={px(1)}
-            width={px(1)}
-            height={px(1)}
-            fill={YELLOW}
-          />
-          <rect
-            x={px(14)}
-            y={px(0)}
-            width={px(1)}
-            height={px(1)}
-            fill={YELLOW}
-          />
-          <rect
-            x={px(13)}
-            y={px(1)}
-            width={px(1)}
-            height={px(1)}
-            fill={YELLOW}
-          />
-          <rect x={px(0)} y={px(12)} width={px(1)} height={px(1)} fill={PINK} />
-          <rect
-            x={px(15)}
-            y={px(12)}
-            width={px(1)}
-            height={px(1)}
-            fill={PINK}
-          />
-        </>
-      );
-    if (emotion === "wrong")
-      return (
-        <>
-          <rect x={px(13)} y={px(3)} width={px(2)} height={px(1)} fill={BLUE} />
-          <rect x={px(14)} y={px(4)} width={px(1)} height={px(2)} fill={BLUE} />
-        </>
-      );
-    if (emotion === "lose")
-      return (
-        <>
-          <rect
-            x={px(4)}
-            y={px(8)}
-            width={px(1)}
-            height={px(4)}
-            fill={BLUE}
-            opacity={0.8}
-          />
-          <rect
-            x={px(3)}
-            y={px(10)}
-            width={px(1)}
-            height={px(2)}
-            fill={BLUE}
-            opacity={0.8}
-          />
-          <rect
-            x={px(11)}
-            y={px(8)}
-            width={px(1)}
-            height={px(4)}
-            fill={BLUE}
-            opacity={0.8}
-          />
-          <rect
-            x={px(12)}
-            y={px(10)}
-            width={px(1)}
-            height={px(2)}
-            fill={BLUE}
-            opacity={0.8}
-          />
-        </>
-      );
-    if (emotion === "correct")
-      return (
-        <>
-          <rect
-            x={px(2)}
-            y={px(8)}
-            width={px(1)}
-            height={px(1)}
-            fill={YELLOW}
-          />
-          <rect
-            x={px(13)}
-            y={px(8)}
-            width={px(1)}
-            height={px(1)}
-            fill={YELLOW}
-          />
-        </>
-      );
-    return null;
-  };
-
-  const Accessory = () => {
-    if (accessory === "glasses")
-      return (
-        <>
-          <rect
-            x={px(3)}
-            y={px(5)}
-            width={px(4)}
-            height={px(3)}
-            fill="none"
-            stroke={DARK}
-            strokeWidth={px(0.4)}
-          />
-          <rect
-            x={px(9)}
-            y={px(5)}
-            width={px(4)}
-            height={px(3)}
-            fill="none"
-            stroke={DARK}
-            strokeWidth={px(0.4)}
-          />
-          <rect x={px(7)} y={px(6)} width={px(2)} height={px(1)} fill={DARK} />
-        </>
-      );
-    if (accessory === "crown")
-      return (
-        <>
-          <rect
-            x={px(3)}
-            y={px(0)}
-            width={px(2)}
-            height={px(2)}
-            fill={YELLOW}
-          />
-          <rect
-            x={px(7)}
-            y={px(-1)}
-            width={px(2)}
-            height={px(3)}
-            fill={YELLOW}
-          />
-          <rect
-            x={px(11)}
-            y={px(0)}
-            width={px(2)}
-            height={px(2)}
-            fill={YELLOW}
-          />
-          <rect
-            x={px(3)}
-            y={px(1)}
-            width={px(10)}
-            height={px(1)}
-            fill={YELLOW}
-          />
-          <rect x={px(5)} y={px(0)} width={px(1)} height={px(1)} fill={RED} />
-          <rect x={px(10)} y={px(0)} width={px(1)} height={px(1)} fill={BLUE} />
-        </>
-      );
-    if (accessory === "headband")
-      return (
-        <>
-          <rect x={px(1)} y={px(3)} width={px(14)} height={px(2)} fill={PINK} />
-          <rect x={px(7)} y={px(1)} width={px(2)} height={px(2)} fill={PINK} />
-        </>
-      );
-    return null;
-  };
-
-  const blushVisible = emotion === "correct" || emotion === "win";
   return (
     <div
       className={animClass}
       style={{ width: size, height: size, display: "inline-block" }}
     >
-      <svg
-        viewBox={`0 0 ${px(16)} ${px(16)}`}
-        width={size}
-        height={size}
-        style={{ imageRendering: "pixelated", display: "block" }}
-      >
-        <rect
-          x={px(2)}
-          y={px(2)}
-          width={px(12)}
-          height={px(13)}
-          fill={skinColor}
-        />
-        <rect
-          x={px(2)}
-          y={px(1)}
-          width={px(12)}
-          height={px(3)}
-          fill={hairColor}
-        />
-        <rect
-          x={px(1)}
-          y={px(2)}
-          width={px(2)}
-          height={px(2)}
-          fill={hairColor}
-        />
-        <rect
-          x={px(13)}
-          y={px(2)}
-          width={px(2)}
-          height={px(2)}
-          fill={hairColor}
-        />
-        <rect
-          x={px(5)}
-          y={px(1)}
-          width={px(2)}
-          height={px(1)}
-          fill={hairColor}
-        />
-        <rect
-          x={px(9)}
-          y={px(0)}
-          width={px(2)}
-          height={px(2)}
-          fill={hairColor}
-        />
-        <rect
-          x={px(1)}
-          y={px(5)}
-          width={px(1)}
-          height={px(3)}
-          fill={skinColor}
-        />
-        <rect
-          x={px(14)}
-          y={px(5)}
-          width={px(1)}
-          height={px(3)}
-          fill={skinColor}
-        />
-        {blushVisible && (
-          <>
-            <rect
-              x={px(3)}
-              y={px(8)}
-              width={px(2)}
-              height={px(1)}
-              fill={PINK}
-              opacity={0.4}
-            />
-            <rect
-              x={px(11)}
-              y={px(8)}
-              width={px(2)}
-              height={px(1)}
-              fill={PINK}
-              opacity={0.4}
-            />
-          </>
-        )}
-        <Eyes />
-        <Mouth />
-        <Extras />
-        <Accessory />
-      </svg>
+      <img
+        src={src}
+        alt="avatar"
+        style={{
+          width: size,
+          height: size,
+          imageRendering: "pixelated",
+          objectFit: "contain",
+        }}
+      />
     </div>
   );
 }
@@ -1009,181 +590,16 @@ function PowerupBtn({
   );
 }
 
-// ─── SCREEN: AVATAR CUSTOMIZATION ─────────────────────────────────────────────
-function AvatarScreen({
-  config,
-  onChange,
-  onConfirm,
-}: {
-  config: AvatarConfig;
-  onChange: (c: AvatarConfig) => void;
-  onConfirm: () => void;
-}) {
-  return (
-    <div
-      className="min-h-screen flex"
-      style={{ background: "linear-gradient(180deg,#1a0a35,#0f0820)" }}
-    >
-      <style>{GLOBAL_CSS}</style>
-      <SidePanel side="left" />
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-10">
-        <div className="w-full max-w-lg slide-up">
-          <div className="text-center mb-8">
-            <div
-              className="pixel-font text-[8px] mb-2"
-              style={{ color: "#4c1d95" }}
-            >
-              STEP 1 OF 3
-            </div>
-            <h1
-              className="pixel-font"
-              style={{ fontSize: "clamp(14px,3vw,20px)", color: "#c084fc" }}
-            >
-              CUSTOMIZE AVATAR
-            </h1>
-          </div>
-          <div className="flex justify-center mb-8">
-            <div className="relative">
-              <div className="float">
-                <PixelAvatar
-                  emotion="idle"
-                  size={120}
-                  hairColor={config.hairColor}
-                  skinColor={config.skinColor}
-                  accessory={config.accessory}
-                />
-              </div>
-              <div
-                style={{
-                  position: "absolute",
-                  bottom: -12,
-                  left: "50%",
-                  transform: "translateX(-50%)",
-                  width: 80,
-                  height: 10,
-                  borderRadius: "50%",
-                  background: "rgba(124,58,237,0.4)",
-                  filter: "blur(6px)",
-                }}
-              />
-            </div>
-          </div>
-          <div
-            className="pixel-box border-4 p-6"
-            style={{
-              background: "#0f0820",
-              borderColor: "#7c3aed",
-              boxShadow: "8px 8px 0 rgba(88,28,135,0.4)",
-            }}
-          >
-            <div className="mb-6">
-              <div
-                className="pixel-font text-[7px] mb-3"
-                style={{ color: "#6b21a8" }}
-              >
-                HAIR COLOR
-              </div>
-              <div className="flex gap-3 flex-wrap">
-                {HAIR_COLORS.map((c) => (
-                  <div
-                    key={c}
-                    className={`swatch pixel-box border-2 ${config.hairColor === c ? "active" : ""}`}
-                    onClick={() => onChange({ ...config, hairColor: c })}
-                    style={{
-                      width: 32,
-                      height: 32,
-                      background: c,
-                      borderColor: config.hairColor === c ? "#fff" : "#2d1060",
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-            <div className="mb-6">
-              <div
-                className="pixel-font text-[7px] mb-3"
-                style={{ color: "#6b21a8" }}
-              >
-                SKIN TONE
-              </div>
-              <div className="flex gap-3">
-                {SKIN_TONES.map((c) => (
-                  <div
-                    key={c}
-                    className={`swatch pixel-box border-2 ${config.skinColor === c ? "active" : ""}`}
-                    onClick={() => onChange({ ...config, skinColor: c })}
-                    style={{
-                      width: 40,
-                      height: 40,
-                      background: c,
-                      borderColor: config.skinColor === c ? "#fff" : "#2d1060",
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-            <div className="mb-8">
-              <div
-                className="pixel-font text-[7px] mb-3"
-                style={{ color: "#6b21a8" }}
-              >
-                ACCESSORY
-              </div>
-              <div className="flex gap-3 flex-wrap">
-                {ACCESSORIES.map((acc) => (
-                  <button
-                    key={acc}
-                    onClick={() => onChange({ ...config, accessory: acc })}
-                    className="pixel-box border-2 px-3 py-2 pixel-font text-[7px] transition-all hover:brightness-125"
-                    style={{
-                      background:
-                        config.accessory === acc ? "#4c1d95" : "#1a0a35",
-                      borderColor:
-                        config.accessory === acc ? "#c084fc" : "#3b1d6a",
-                      color: config.accessory === acc ? "#fff" : "#7c3aed",
-                    }}
-                  >
-                    {acc === "none"
-                      ? "NONE"
-                      : acc === "glasses"
-                        ? "GLASSES"
-                        : acc === "crown"
-                          ? "CROWN"
-                          : "HEADBAND"}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <button
-              onClick={onConfirm}
-              className="w-full py-4 pixel-box border-4 pixel-font text-[10px] transition-all hover:brightness-110 active:translate-y-px"
-              style={{
-                background: "#7c3aed",
-                borderColor: "#a855f7",
-                color: "#fff",
-                boxShadow: "4px 4px 0 rgba(88,28,135,0.6)",
-              }}
-            >
-              CONFIRM LOOK →
-            </button>
-          </div>
-        </div>
-      </div>
-      <SidePanel side="right" />
-    </div>
-  );
-}
-
-// ─── SCREEN: SHOP ──────────────────────────────────────────────────────────────
+// ─── SCREEN: SHOP ─────────────────────────────────────────────────────────────
 function ShopScreen({
-  config,
+  avatarCfg,
   coins,
   onBuy,
   onStart,
   onBack,
   inventory,
 }: {
-  config: AvatarConfig;
+  avatarCfg: AvatarCfg;
   coins: number;
   onBuy: (id: string, price: number) => void;
   onStart: () => void;
@@ -1212,12 +628,6 @@ function ShopScreen({
               <ArrowLeft size={14} />
             </button>
             <div className="flex-1 text-center">
-              <div
-                className="pixel-font text-[8px] mb-1"
-                style={{ color: "#4c1d95" }}
-              >
-                STEP 3 OF 3
-              </div>
               <h1
                 className="pixel-font"
                 style={{ fontSize: "clamp(12px,3vw,18px)", color: "#c084fc" }}
@@ -1238,15 +648,11 @@ function ShopScreen({
               </span>
             </div>
           </div>
+
           <div className="flex justify-center mb-6">
-            <PixelAvatar
-              emotion="idle"
-              size={60}
-              hairColor={config.hairColor}
-              skinColor={config.skinColor}
-              accessory={config.accessory}
-            />
+            <GameAvatar emotion="idle" size={72} cfg={avatarCfg} />
           </div>
+
           <div
             className="pixel-box border-4 p-5 mb-5"
             style={{
@@ -1405,13 +811,8 @@ export default function GameRoom() {
     },
   };
 
-  const _savedAvatar = loadSavedAvatar();
-  const [gamePhase, setGamePhase] = useState<GamePhase>(
-    _savedAvatar ? "shop" : "avatar",
-  );
-  const [avatarConfig, setAvatarConfig] = useState<AvatarConfig>(
-    _savedAvatar ?? DEFAULT_AVATAR,
-  );
+  const [avatarConfig] = useState<AvatarCfg>(loadSavedAvatar);
+  const [gamePhase, setGamePhase] = useState<GamePhase>("shop");
 
   const [coins, setCoins] = useState<number>(() => {
     try {
@@ -1432,7 +833,6 @@ export default function GameRoom() {
     shield: 0,
     double: 0,
   });
-
   const [difficulty, setDifficulty] = useState<Difficulty>("easy");
   const [wrongAttempts, setWrongAttempts] = useState(0);
   const [questions, setQuestions] = useState<QuestionWithChoices[]>([]);
@@ -1592,11 +992,6 @@ export default function GameRoom() {
     }
   }
 
-  function handleAvatarConfirm() {
-    persistAvatar(avatarConfig);
-    sounds.click();
-    setGamePhase("shop");
-  }
   function handleShopBuy(itemId: string, price: number) {
     if (coins < price) return;
     sounds.buy();
@@ -1876,7 +1271,6 @@ export default function GameRoom() {
       setAnswerResult("wrong");
       setAvatarEmotion("wrong");
       sounds.wrong();
-      // All difficulties: wrong answer = lose a life immediately, then advance
       setWrongAttempts(0);
       setTimeout(() => {
         sounds.loseHeart();
@@ -2027,18 +1421,10 @@ export default function GameRoom() {
         : "#ef4444";
   const multiplier = getMultiplier(streak);
 
-  if (gamePhase === "avatar")
-    return (
-      <AvatarScreen
-        config={avatarConfig}
-        onChange={setAvatarConfig}
-        onConfirm={handleAvatarConfirm}
-      />
-    );
   if (gamePhase === "shop")
     return (
       <ShopScreen
-        config={avatarConfig}
+        avatarCfg={avatarConfig}
         coins={coins}
         onBuy={handleShopBuy}
         onStart={handleShopStart}
@@ -2116,12 +1502,10 @@ export default function GameRoom() {
         </div>
         <div className="w-full max-w-md relative z-10">
           <div className="float mb-6 flex flex-col items-center gap-3">
-            <PixelAvatar
+            <GameAvatar
               emotion={won ? "win" : "lose"}
               size={100}
-              hairColor={avatarConfig.hairColor}
-              skinColor={avatarConfig.skinColor}
-              accessory={avatarConfig.accessory}
+              cfg={avatarConfig}
             />
             <div
               className="pixel-font text-[8px]"
@@ -2302,33 +1686,26 @@ export default function GameRoom() {
       </div>
     );
 
-  // ── Cap displayed choices to min(difficulty max, available) ───────────────
   const displayChoices = current
     ? current.choices.slice(0, Math.min(cfg.choices, current.choices.length))
     : [];
   const choiceCount = displayChoices.length;
 
-  // ── Choice button renderer (shared logic) ─────────────────────────────────
   function renderChoiceButton(
     choice: DbChoice,
     i: number,
     extraStyle?: React.CSSProperties,
   ) {
     const isSel = selected === choice.id;
-    // Show green on: the correct answer whenever ANY answer has been submitted
     const showC =
       (isSel && answerResult === "correct") ||
       (answerResult !== null && choice.is_correct);
-    // Show red on: the wrong choice the player selected
     const showW = isSel && answerResult === "wrong";
-    // Dim all other choices once an answer is submitted
     const isDimmed = answerResult !== null && !isSel && !choice.is_correct;
     const isElim = eliminatedChoices.includes(choice.id);
     const isHint = hintChoice === choice.id;
-
     const bBgs = ["#1e1060", "#0f1e50", "#1a1500", "#1a0820", "#001a1a"];
     const bBds = ["#4c1d95", "#1e3a8a", "#713f12", "#581c87", "#134e4a"];
-
     const btnBg = isElim
       ? "#0a0a0a"
       : isDimmed
@@ -2340,7 +1717,6 @@ export default function GameRoom() {
             : isHint
               ? "#1c2d00"
               : bBgs[i % 5];
-
     const btnBorder = isElim
       ? "#1a1a1a"
       : isDimmed
@@ -2352,9 +1728,7 @@ export default function GameRoom() {
             : isHint
               ? "#86efac"
               : bBds[i % 5];
-
     const btnOpacity = isElim ? 0.25 : isDimmed ? 0.35 : 1;
-
     const badgeBg = showC
       ? "#15803d"
       : showW
@@ -2376,7 +1750,6 @@ export default function GameRoom() {
         : isHint
           ? "#86efac"
           : "#c084fc";
-
     const textColor = isElim
       ? "#333"
       : isDimmed
@@ -2384,7 +1757,6 @@ export default function GameRoom() {
         : isHint
           ? "#86efac"
           : "#e9d5ff";
-
     return (
       <button
         key={choice.id}
@@ -2482,12 +1854,10 @@ export default function GameRoom() {
               {cfg.label}
             </div>
             <div className="shrink-0 relative">
-              <PixelAvatar
+              <GameAvatar
                 emotion={avatarEmotion}
                 size={48}
-                hairColor={avatarConfig.hairColor}
-                skinColor={avatarConfig.skinColor}
-                accessory={avatarConfig.accessory}
+                cfg={avatarConfig}
               />
               {avatarEmotion === "correct" && (
                 <div
@@ -2752,7 +2122,6 @@ export default function GameRoom() {
         {/* Question + Choices */}
         <div className="flex-1 flex items-center justify-center px-6 pb-8">
           <div className="w-full max-w-2xl flex flex-col gap-5">
-            {/* Question card */}
             <div
               className="pixel-box border-4 p-7 relative overflow-hidden"
               style={{
@@ -2793,24 +2162,19 @@ export default function GameRoom() {
               </h3>
             </div>
 
-            {/* ── Choice grid ─────────────────────────────────────────────── */}
-            {/* Easy (3) → vertical stack; Normal (4) → 2×2 grid; Hard (5) → 2×2 + centred 5th */}
             {choiceCount <= 3 ? (
-              // EASY: vertical stack
               <div className="flex flex-col gap-4">
                 {displayChoices.map((choice, i) =>
                   renderChoiceButton(choice, i),
                 )}
               </div>
             ) : choiceCount === 4 ? (
-              // NORMAL: 2×2 grid
               <div className="grid grid-cols-2 gap-4">
                 {displayChoices.map((choice, i) =>
                   renderChoiceButton(choice, i),
                 )}
               </div>
             ) : (
-              // HARD: 2×2 grid + centred 5th
               <>
                 <div className="grid grid-cols-2 gap-4">
                   {displayChoices

@@ -10,7 +10,6 @@ import {
   Settings,
   LogOut as LogOutIcon,
   Bell,
-  Zap,
   Trophy,
   Star,
   ChevronRight,
@@ -38,7 +37,7 @@ import {
   markAllNotificationsAsRead,
   subscribeToNotifications,
 } from "../lib/supabase";
-import { createContext, useContext } from "react";
+import { createContext } from "react";
 
 const ThemeCtx = createContext<boolean>(false);
 
@@ -683,11 +682,7 @@ export default function Dashboard() {
       case "mygames":
         return <MyGames />;
       case "streak":
-        return (
-          <div style={{ maxWidth: 640 }}>
-            <StreakCalendar />
-          </div>
-        );
+        return <StreakCalendar />;
       case "profile":
         return <Profile />;
       case "settings":
