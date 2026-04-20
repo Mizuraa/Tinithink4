@@ -37,6 +37,74 @@ import {
   User,
 } from "lucide-react";
 import { supabase, getCurrentUser } from "../../lib/supabase";
+import { AVATAR_IMAGES } from "../../../public/AvatarImages";
+
+// ─── Avatar Types & Helpers (mirrored from Settings) ─────────────────────────
+
+type AvatarGender = "female" | "male";
+type AvatarChar = "1" | "2" | "3" | "4";
+type AvatarColor =
+  | "purple"
+  | "sky"
+  | "pink"
+  | "red"
+  | "mint"
+  | "gold"
+  | "white"
+  | "black";
+
+type AvatarCfg = {
+  gender: AvatarGender;
+  char: AvatarChar;
+  color: AvatarColor;
+};
+
+const DEFAULT_AVATAR: AvatarCfg = {
+  gender: "female",
+  char: "1",
+  color: "purple",
+};
+
+function loadAvatarLocal(): AvatarCfg {
+  try {
+    const r = localStorage.getItem("tini_avatar");
+    return r ? JSON.parse(r) : DEFAULT_AVATAR;
+  } catch {
+    return DEFAULT_AVATAR;
+  }
+}
+
+function getAvatarSrc(cfg: AvatarCfg, mood: "happy" | "sad" = "happy"): string {
+  const charData = (AVATAR_IMAGES as any)[cfg.gender]?.[cfg.char];
+  if (!charData) return "";
+  const moodData =
+    charData[mood] ?? charData[mood === "happy" ? "sad" : "happy"] ?? {};
+  return moodData[cfg.color] ?? charData.base ?? "";
+}
+
+function StudyAvatar({ mood }: { mood: "happy" | "sad" }) {
+  const [cfg] = useState<AvatarCfg>(loadAvatarLocal);
+  const src = getAvatarSrc(cfg, mood);
+  return (
+    <div className="study-avatar">
+      {src ? (
+        <img
+          src={src}
+          alt={mood}
+          style={{
+            width: "100%",
+            height: "100%",
+            imageRendering: "pixelated",
+            objectFit: "contain",
+            transition: "opacity 0.2s",
+          }}
+        />
+      ) : (
+        <User size={24} color="#6d28d9" />
+      )}
+    </div>
+  );
+}
 
 // ─── Theme Context ────────────────────────────────────────────────────────────
 
@@ -86,6 +154,7 @@ const GLOBAL_STYLES = `
   @keyframes popIn  { 0%{opacity:0;transform:scale(.9)} 60%{transform:scale(1.02)} 100%{opacity:1;transform:scale(1)} }
   @keyframes shake  { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-4px)} 60%{transform:translateX(4px)} }
   @keyframes spin   { to{transform:rotate(360deg)} }
+  @keyframes avatarFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
 
   /* ── Form Inputs ── */
   .fc-input {
@@ -188,7 +257,7 @@ const GLOBAL_STYLES = `
 
   /* Study TopBar */
   .study-topbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
-  .study-avatar { width: 44px; height: 44px; border-radius: 50%; background: rgba(109,40,217,.2); border: 1px solid #4c1d95; display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden; }
+  .study-avatar { width: 44px; height: 44px; border-radius: 50%; background: rgba(109,40,217,.2); border: 1px solid #4c1d95; display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden; animation: avatarFloat 2.5s ease-in-out infinite; }
   .study-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
   .study-user-name { font-family: 'Press Start 2P', cursive; font-size: 9px; color: #a78bfa; margin-bottom: 4px; }
   .study-user-sub  { font-family: 'Press Start 2P', cursive; font-size: 6px; color: #2d1060; }
@@ -1785,6 +1854,7 @@ function StudyMode({
   const [shuffled, setShuffled] = useState(false);
   const [finished, setFinished] = useState(false);
   const [gameOver, setGameOver] = useState(false);
+  const [avatarMood, setAvatarMood] = useState<"happy" | "sad">("happy");
 
   const current = deck[index];
   // Progress based on mastery (known / total)
@@ -1804,6 +1874,7 @@ function StudyMode({
   }, [index]);
 
   function handleKnewIt() {
+    setAvatarMood("happy");
     setKnown((prev) => new Set([...prev, current.id]));
     setLearning((prev) => {
       const s = new Set(prev);
@@ -1817,6 +1888,8 @@ function StudyMode({
   }
 
   function handleStillLearning() {
+    setAvatarMood("sad");
+    setTimeout(() => setAvatarMood("happy"), 1200);
     setLearning((prev) => new Set([...prev, current.id]));
     setKnown((prev) => {
       const s = new Set(prev);
@@ -1994,9 +2067,7 @@ function StudyMode({
       <div className="study-inner">
         {/* Top bar */}
         <div className="study-topbar">
-          <div className="study-avatar">
-            <User size={24} color="#6d28d9" />
-          </div>
+          <StudyAvatar mood={avatarMood} />
           <div>
             <div className="study-user-name">{userName}</div>
             <div className="study-user-sub">FLASHCARD SESSION</div>

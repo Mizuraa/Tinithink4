@@ -15,6 +15,12 @@ import {
   ChevronRight,
   Play,
   Flame,
+  ClipboardList,
+  Plus,
+  Trash2,
+  CheckSquare,
+  Square,
+  AlertCircle,
 } from "lucide-react";
 import Flashcard from "./dashboard/Flashcard";
 import Reviewer from "./dashboard/Reviewer";
@@ -51,6 +57,8 @@ type MenuKey =
   | "profile"
   | "settings"
   | "streak"
+  | "subscription"
+  | "todo"
   | "logout";
 
 // ── Animated grid background ──────────────────────────────────────────────────
@@ -457,6 +465,75 @@ function HomeContent({
         </div>
       )}
 
+      {/* Subscription banner */}
+      <div
+        className="pixel-box border-2 p-4 relative overflow-hidden"
+        style={{
+          background: lightMode
+            ? "linear-gradient(135deg,#fdf4ff,#eff6ff)"
+            : "linear-gradient(135deg,#1e0a40,#0a1a3a)",
+          borderColor: "#a855f7",
+          boxShadow: lightMode
+            ? "4px 4px 0 #e9d5ff"
+            : "0 0 20px rgba(168,85,247,0.2), 4px 4px 0 #2d1060",
+        }}
+      >
+        <div
+          className="absolute top-2 right-2 pixel-font text-[7px] px-2 py-0.5 pixel-box border"
+          style={{
+            background: "#7c3aed",
+            borderColor: "#a855f7",
+            color: "#e9d5ff",
+          }}
+        >
+          ★ UPGRADE
+        </div>
+        <div
+          className="pixel-font text-[8px] mb-1"
+          style={{ color: lightMode ? "#9ca3af" : "#6b21a8" }}
+        >
+          CURRENT PLAN
+        </div>
+        <div
+          className="pixel-font text-sm mb-1"
+          style={{ color: lightMode ? "#1e0a40" : "#e9d5ff" }}
+        >
+          FREE PLAN
+        </div>
+        <div
+          className="pixel-font text-[8px] mb-3"
+          style={{ color: lightMode ? "#6b7280" : "#4c1d95" }}
+        >
+          3 games/day · Basic flashcards
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <button
+            onClick={() => onNavigate("subscription")}
+            className="btn-press pixel-box border-2 px-3 py-2 pixel-font text-[8px] transition-all hover:brightness-125"
+            style={{
+              background: "#7c3aed",
+              borderColor: "#a855f7",
+              color: "#ffffff",
+              boxShadow: "3px 3px 0 #2d1060",
+            }}
+          >
+            ⚡ CLUTCH PASS — ₱99.99/wk
+          </button>
+          <button
+            onClick={() => onNavigate("subscription")}
+            className="btn-press pixel-box border-2 px-3 py-2 pixel-font text-[8px] transition-all hover:brightness-125"
+            style={{
+              background: lightMode ? "#ffffff" : "#0d0520",
+              borderColor: "#38bdf8",
+              color: "#38bdf8",
+              boxShadow: "3px 3px 0 #0e7490",
+            }}
+          >
+            👑 PREMIUM — ₱129.99/mo
+          </button>
+        </div>
+      </div>
+
       {/* Announcements */}
       <div>
         <div
@@ -497,6 +574,585 @@ function HomeContent({
               </span>
             </div>
           ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── To-do List Page ────────────────────────────────────────────────────────────
+type TodoItem = {
+  id: string;
+  text: string;
+  dueDate: string;
+  done: boolean;
+  createdAt: string;
+};
+
+function TodoPage({ lightMode = false }: { lightMode?: boolean }) {
+  const [todos, setTodos] = useState<TodoItem[]>(() => {
+    try {
+      const saved = localStorage.getItem("tt_todos");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [newText, setNewText] = useState("");
+  const [newDue, setNewDue] = useState("");
+  const [showAdd, setShowAdd] = useState(false);
+
+  function save(updated: TodoItem[]) {
+    setTodos(updated);
+    try {
+      localStorage.setItem("tt_todos", JSON.stringify(updated));
+    } catch {}
+  }
+
+  function addTodo() {
+    if (!newText.trim()) return;
+    const item: TodoItem = {
+      id: Date.now().toString(),
+      text: newText.trim(),
+      dueDate: newDue,
+      done: false,
+      createdAt: new Date().toISOString(),
+    };
+    save([item, ...todos]);
+    setNewText("");
+    setNewDue("");
+    setShowAdd(false);
+  }
+
+  function toggleDone(id: string) {
+    save(todos.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
+  }
+
+  function deleteTodo(id: string) {
+    save(todos.filter((t) => t.id !== id));
+  }
+
+  function getStatus(
+    todo: TodoItem,
+  ): "done" | "overdue" | "upcoming" | "nodate" {
+    if (todo.done) return "done";
+    if (!todo.dueDate) return "nodate";
+    const due = new Date(todo.dueDate);
+    due.setHours(23, 59, 59);
+    return due < new Date() ? "overdue" : "upcoming";
+  }
+
+  function formatDue(dueDate: string) {
+    if (!dueDate) return "";
+    const due = new Date(dueDate);
+    return due.toLocaleDateString("en-PH", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
+
+  function daysLabel(dueDate: string, done: boolean) {
+    if (done || !dueDate) return null;
+    const due = new Date(dueDate);
+    due.setHours(23, 59, 59);
+    const diff = Math.round((due.getTime() - Date.now()) / 86400000);
+    if (diff < 0)
+      return `${Math.abs(diff)} day${Math.abs(diff) !== 1 ? "s" : ""} late`;
+    if (diff === 0) return "due today";
+    return `in ${diff} day${diff !== 1 ? "s" : ""}`;
+  }
+
+  const overdue = todos.filter((t) => getStatus(t) === "overdue");
+  const upcoming = todos.filter(
+    (t) => getStatus(t) === "upcoming" || getStatus(t) === "nodate",
+  );
+  const done = todos.filter((t) => getStatus(t) === "done");
+
+  const statusStyle = {
+    done: {
+      border: "#15803d",
+      bg: lightMode ? "#f0fdf4" : "#052e16",
+      badge: { bg: "#16a34a", color: "#bbf7d0" },
+      text: lightMode ? "#14532d" : "#86efac",
+      sub: "#15803d",
+    },
+    overdue: {
+      border: "#b91c1c",
+      bg: lightMode ? "#fff1f2" : "#450a0a",
+      badge: { bg: "#dc2626", color: "#fecaca" },
+      text: lightMode ? "#7f1d1d" : "#fca5a5",
+      sub: "#b91c1c",
+    },
+    upcoming: {
+      border: lightMode ? "#e2e8f0" : "#2d1060",
+      bg: lightMode ? "#ffffff" : "#0d0520",
+      badge: { bg: "#1e1b4b", color: "#a5b4fc" },
+      text: lightMode ? "#1e0a40" : "#c4b5fd",
+      sub: lightMode ? "#9ca3af" : "#4c1d95",
+    },
+    nodate: {
+      border: lightMode ? "#e2e8f0" : "#2d1060",
+      bg: lightMode ? "#ffffff" : "#0d0520",
+      badge: { bg: "#1e1b4b", color: "#a5b4fc" },
+      text: lightMode ? "#1e0a40" : "#c4b5fd",
+      sub: lightMode ? "#9ca3af" : "#4c1d95",
+    },
+  };
+
+  function TodoCard({ todo }: { todo: TodoItem }) {
+    const s = getStatus(todo);
+    const st = statusStyle[s];
+    const days = daysLabel(todo.dueDate, todo.done);
+    const outlineColor =
+      s === "overdue"
+        ? "#dc2626"
+        : s === "done"
+          ? "#16a34a"
+          : s === "upcoming"
+            ? "#7c3aed"
+            : "#334155";
+    const stripColor =
+      s === "overdue" ? "#dc2626" : s === "done" ? "#16a34a" : "transparent";
+    return (
+      <div
+        className="pixel-box flex items-stretch overflow-hidden"
+        style={{ outline: `2px solid ${outlineColor}` }}
+      >
+        {/* Color strip on left */}
+        <div style={{ width: 5, flexShrink: 0, background: stripColor }} />
+        <div
+          className="flex items-center gap-3 px-3 py-2 flex-1 min-w-0"
+          style={{ background: st.bg }}
+        >
+          <button
+            onClick={() => toggleDone(todo.id)}
+            className="flex-shrink-0 transition-all hover:scale-110"
+            style={{
+              color:
+                s === "done"
+                  ? "#4ade80"
+                  : s === "overdue"
+                    ? "#f87171"
+                    : "#a855f7",
+            }}
+          >
+            {todo.done ? <CheckSquare size={16} /> : <Square size={16} />}
+          </button>
+          <div className="flex-1 min-w-0">
+            <div
+              className="pixel-font text-[9px] truncate"
+              style={{
+                color: st.text,
+                textDecoration: todo.done ? "line-through" : "none",
+                opacity: todo.done ? 0.6 : 1,
+              }}
+            >
+              {todo.text}
+            </div>
+            {todo.dueDate && (
+              <div
+                className="pixel-font text-[7px] mt-0.5 flex items-center gap-1"
+                style={{ color: st.sub }}
+              >
+                {s === "overdue" && <AlertCircle size={8} />}
+                Due {formatDue(todo.dueDate)}
+                {days ? ` · ${days}` : ""}
+              </div>
+            )}
+          </div>
+          <div
+            className="pixel-font text-[7px] px-2 py-0.5 pixel-box border flex-shrink-0"
+            style={{
+              background: st.badge.bg,
+              borderColor: outlineColor,
+              color: st.badge.color,
+            }}
+          >
+            {s === "done"
+              ? "DONE"
+              : s === "overdue"
+                ? "LATE"
+                : s === "upcoming" && todo.dueDate
+                  ? "SOON"
+                  : "—"}
+          </div>
+          <button
+            onClick={() => deleteTodo(todo.id)}
+            className="flex-shrink-0 hover:opacity-100 opacity-40 transition-opacity"
+            style={{ color: "#f87171" }}
+          >
+            <Trash2 size={12} />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  function Section({
+    label,
+    items,
+    accent,
+  }: {
+    label: string;
+    items: TodoItem[];
+    accent: string;
+  }) {
+    if (items.length === 0) return null;
+    return (
+      <div>
+        <div
+          className="pixel-font text-[8px] mb-2 flex items-center gap-2"
+          style={{ color: accent }}
+        >
+          <span>▸</span> {label} ({items.length})
+        </div>
+        <div className="space-y-2">
+          {items.map((t) => (
+            <TodoCard key={t.id} todo={t} />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5 w-full">
+      {/* Header bar */}
+      <div
+        className="pixel-box border-2 p-4 flex items-center justify-between"
+        style={{
+          background: lightMode
+            ? "linear-gradient(135deg,#fdf4ff,#eff6ff)"
+            : "linear-gradient(135deg,#1e0a40,#0a1a3a)",
+          borderColor: "#7c3aed",
+          boxShadow: "4px 4px 0 #2d1060",
+        }}
+      >
+        <div>
+          <div
+            className="pixel-font text-[8px] mb-0.5"
+            style={{ color: lightMode ? "#9ca3af" : "#6b21a8" }}
+          >
+            📋 TASK MANAGER
+          </div>
+          <div
+            className="pixel-font text-sm"
+            style={{ color: lightMode ? "#1e0a40" : "#e9d5ff" }}
+          >
+            TO-DO LIST
+          </div>
+          <div
+            className="pixel-font text-[7px] mt-1"
+            style={{ color: lightMode ? "#9ca3af" : "#4c1d95" }}
+          >
+            {todos.filter((t) => !t.done).length} pending · {done.length} done
+          </div>
+        </div>
+        <button
+          onClick={() => setShowAdd((v) => !v)}
+          className="btn-press pixel-box border-2 px-3 py-2 pixel-font text-[8px] flex items-center gap-2 transition-all hover:brightness-125"
+          style={{
+            background: "#7c3aed",
+            borderColor: "#a855f7",
+            color: "#ffffff",
+            boxShadow: "3px 3px 0 #2d1060",
+          }}
+        >
+          <Plus size={12} /> ADD TASK
+        </button>
+      </div>
+
+      {/* Add task form */}
+      {showAdd && (
+        <div
+          className="pixel-box border-2 p-4 space-y-3"
+          style={{
+            background: lightMode ? "#ffffff" : "#0d0520",
+            borderColor: "#7c3aed",
+          }}
+        >
+          <div
+            className="pixel-font text-[8px]"
+            style={{ color: lightMode ? "#9ca3af" : "#4c1d95" }}
+          >
+            NEW TASK
+          </div>
+          <input
+            type="text"
+            value={newText}
+            onChange={(e) => setNewText(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addTodo()}
+            placeholder="TASK DESCRIPTION..."
+            className="w-full px-3 py-2 pixel-box border-2 pixel-font text-[9px] focus:outline-none transition-colors"
+            style={{
+              background: lightMode ? "#f8fafc" : "#0a0520",
+              borderColor: lightMode ? "#e2e8f0" : "#2d1060",
+              color: lightMode ? "#1e0a40" : "#c4b5fd",
+            }}
+          />
+          <div className="flex gap-3 items-center">
+            <div className="flex-1">
+              <div
+                className="pixel-font text-[7px] mb-1"
+                style={{ color: lightMode ? "#9ca3af" : "#4c1d95" }}
+              >
+                DUE DATE (optional)
+              </div>
+              <input
+                type="date"
+                value={newDue}
+                onChange={(e) => setNewDue(e.target.value)}
+                className="w-full px-3 py-2 pixel-box border-2 pixel-font text-[9px] focus:outline-none transition-colors"
+                style={{
+                  background: lightMode ? "#f8fafc" : "#0a0520",
+                  borderColor: lightMode ? "#e2e8f0" : "#2d1060",
+                  color: lightMode ? "#1e0a40" : "#c4b5fd",
+                }}
+              />
+            </div>
+            <div className="flex gap-2 mt-4">
+              <button
+                onClick={addTodo}
+                disabled={!newText.trim()}
+                className="btn-press pixel-box border-2 px-3 py-2 pixel-font text-[8px] transition-all hover:brightness-125 disabled:opacity-40"
+                style={{
+                  background: "#15803d",
+                  borderColor: "#4ade80",
+                  color: "#ffffff",
+                }}
+              >
+                SAVE
+              </button>
+              <button
+                onClick={() => {
+                  setShowAdd(false);
+                  setNewText("");
+                  setNewDue("");
+                }}
+                className="btn-press pixel-box border-2 px-3 py-2 pixel-font text-[8px] transition-all hover:brightness-125"
+                style={{
+                  background: lightMode ? "#ffffff" : "#0d0520",
+                  borderColor: "#b91c1c",
+                  color: "#f87171",
+                }}
+              >
+                CANCEL
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {todos.length === 0 && (
+        <div
+          className="pixel-box border-2 p-8 text-center"
+          style={{
+            background: lightMode ? "#ffffff" : "#0d0520",
+            borderColor: lightMode ? "#e2e8f0" : "#2d1060",
+          }}
+        >
+          <ClipboardList
+            size={28}
+            style={{ color: "#4c1d95", margin: "0 auto 12px" }}
+          />
+          <div
+            className="pixel-font text-[9px]"
+            style={{ color: lightMode ? "#9ca3af" : "#4c1d95" }}
+          >
+            NO TASKS YET
+          </div>
+          <div
+            className="pixel-font text-[7px] mt-2"
+            style={{ color: lightMode ? "#d1d5db" : "#2d1060" }}
+          >
+            PRESS + ADD TASK TO GET STARTED
+          </div>
+        </div>
+      )}
+
+      <Section label="OVERDUE" items={overdue} accent="#f87171" />
+      <Section
+        label="UPCOMING"
+        items={upcoming}
+        accent={lightMode ? "#7c3aed" : "#a855f7"}
+      />
+      <Section label="COMPLETED" items={done} accent="#4ade80" />
+    </div>
+  );
+}
+
+// ── Subscription Page ──────────────────────────────────────────────────────────
+function SubscriptionPage({ lightMode = false }: { lightMode?: boolean }) {
+  const plans = [
+    {
+      key: "free",
+      name: "FREE",
+      price: "₱0",
+      period: "forever",
+      color: "#94a3b8",
+      border: "#334155",
+      bg: lightMode ? "#f8fafc" : "#0d0520",
+      features: [
+        "Free access to flashcards",
+        "3 games per day",
+        "Color hair (free styles)",
+      ],
+      cta: "CURRENT PLAN",
+      disabled: true,
+    },
+    {
+      key: "clutch",
+      name: "CLUTCH PASS",
+      price: "₱99.99",
+      period: "per week",
+      color: "#a855f7",
+      border: "#7c3aed",
+      bg: lightMode ? "#fdf4ff" : "#1e0a40",
+      badge: "MOST POPULAR",
+      features: ["Access to reviewers", "Unlimited games"],
+      cta: "⚡ GET CLUTCH PASS",
+      disabled: false,
+    },
+    {
+      key: "premium",
+      name: "PREMIUM",
+      price: "₱129.99",
+      period: "per month",
+      color: "#38bdf8",
+      border: "#0e7490",
+      bg: lightMode ? "#f0f9ff" : "#0c2a3a",
+      features: ["Full access to everything", "With accessories"],
+      cta: "👑 GET PREMIUM",
+      disabled: false,
+    },
+  ];
+
+  return (
+    <div className="space-y-6 w-full">
+      <div
+        className="pixel-box border-2 p-4"
+        style={{
+          background: lightMode
+            ? "linear-gradient(135deg,#fdf4ff,#eff6ff)"
+            : "linear-gradient(135deg,#1e0a40,#0a1a3a)",
+          borderColor: "#7c3aed",
+          boxShadow: "4px 4px 0 #2d1060",
+        }}
+      >
+        <div
+          className="pixel-font text-[8px] mb-1"
+          style={{ color: lightMode ? "#9ca3af" : "#6b21a8" }}
+        >
+          💎 TINITHINK PLANS
+        </div>
+        <div
+          className="pixel-font text-sm"
+          style={{ color: lightMode ? "#1e0a40" : "#e9d5ff" }}
+        >
+          CHOOSE YOUR PLAN
+        </div>
+        <div
+          className="pixel-font text-[8px] mt-1"
+          style={{ color: lightMode ? "#6b7280" : "#4c1d95" }}
+        >
+          Upgrade anytime · Cancel anytime
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {plans.map((plan) => (
+          <div
+            key={plan.key}
+            className="pixel-box border-2 p-4 relative overflow-hidden"
+            style={{
+              background: plan.bg,
+              borderColor: plan.border,
+              boxShadow: `3px 3px 0 ${plan.border}55`,
+            }}
+          >
+            {plan.badge && (
+              <div
+                className="absolute top-3 right-3 pixel-font text-[7px] px-2 py-0.5 pixel-box border"
+                style={{
+                  background: "#7c3aed",
+                  borderColor: "#a855f7",
+                  color: "#e9d5ff",
+                }}
+              >
+                {plan.badge}
+              </div>
+            )}
+            <div className="flex items-start gap-4">
+              <div className="flex-1">
+                <div
+                  className="pixel-font text-xs mb-0.5"
+                  style={{ color: plan.color }}
+                >
+                  {plan.name}
+                </div>
+                <div
+                  className="pixel-font text-lg"
+                  style={{ color: lightMode ? "#1e0a40" : "#ffffff" }}
+                >
+                  {plan.price}
+                  <span
+                    className="text-[9px] ml-1"
+                    style={{ color: lightMode ? "#9ca3af" : "#4c1d95" }}
+                  >
+                    {plan.period}
+                  </span>
+                </div>
+                <div className="mt-2 space-y-1">
+                  {plan.features.map((f) => (
+                    <div
+                      key={f}
+                      className="pixel-font text-[8px] flex items-center gap-2"
+                      style={{ color: lightMode ? "#374151" : "#c4b5fd" }}
+                    >
+                      <span style={{ color: plan.color }}>▸</span> {f}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <button
+                disabled={plan.disabled}
+                className="btn-press pixel-box border-2 px-3 py-2 pixel-font text-[8px] self-center transition-all hover:brightness-125 disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  background: plan.disabled
+                    ? lightMode
+                      ? "#f1f5f9"
+                      : "#1a0a35"
+                    : plan.border,
+                  borderColor: plan.border,
+                  color: plan.disabled
+                    ? lightMode
+                      ? "#9ca3af"
+                      : "#4c1d95"
+                    : "#ffffff",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {plan.cta}
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div
+        className="pixel-box border-2 p-3 text-center"
+        style={{
+          background: lightMode ? "#ffffff" : "#0d0520",
+          borderColor: lightMode ? "#e2e8f0" : "#2d1060",
+        }}
+      >
+        <div
+          className="pixel-font text-[8px]"
+          style={{ color: lightMode ? "#6b7280" : "#4c1d95" }}
+        >
+          🔒 SECURE PAYMENT · RENEW OR CANCEL ANYTIME FROM THIS PAGE
         </div>
       </div>
     </div>
@@ -642,6 +1298,18 @@ export default function Dashboard() {
       color: "#a855f7",
     },
     {
+      key: "todo" as MenuKey,
+      label: "TO-DO",
+      icon: ClipboardList,
+      color: "#fb923c",
+    },
+    {
+      key: "subscription" as MenuKey,
+      label: "PLANS",
+      icon: Star,
+      color: "#a855f7",
+    },
+    {
       key: "streak" as MenuKey,
       label: "STREAK",
       icon: Flame,
@@ -681,6 +1349,10 @@ export default function Dashboard() {
         return <GroupsPage />;
       case "mygames":
         return <MyGames />;
+      case "todo":
+        return <TodoPage lightMode={lightMode} />;
+      case "subscription":
+        return <SubscriptionPage lightMode={lightMode} />;
       case "streak":
         return <StreakCalendar />;
       case "profile":
