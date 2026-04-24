@@ -1662,22 +1662,25 @@ export default function GameRoom() {
             />
           ))}
         </div>
-        <div className="w-full max-w-md relative z-10">
-          <div className="float mb-6 flex flex-col items-center gap-3">
+        <div className="w-full max-w-5xl relative z-10 flex items-center justify-center gap-12">
+          {/* LEFT SIDE - AVATAR */}
+          <div className="flex flex-col items-center gap-3 float">
             <GameAvatar
               emotion={won ? "win" : "lose"}
-              size={100}
+              size={400}
               cfg={avatarConfig}
             />
             <div
-              className="pixel-font text-[8px]"
+              className="pixel-font text-[10px]"
               style={{ color: won ? "#86efac" : "#fca5a5" }}
             >
               {won ? "★ CHAMPION ★" : "✗ DEFEATED ✗"}
             </div>
           </div>
+
+          {/* RIGHT SIDE - GAME OVER UI */}
           <div
-            className="pixel-box border-4 p-8"
+            className="pixel-box border-4 p-12 max-w-md w-full float"
             style={{
               background: "#0f0820",
               borderColor: won ? "#facc15" : "#7c3aed",
