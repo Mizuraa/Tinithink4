@@ -593,17 +593,17 @@ function PowerupBtn({
       style={{
         background: "#1a0a35",
         borderColor: count > 0 ? "#7c3aed" : "#2d1060",
-        padding: "10px 8px",
-        minWidth: "52px",
+        padding: "14px 10px",
+        minWidth: "70px",
       }}
     >
-      <span style={{ fontSize: "18px", lineHeight: 1 }}>{emoji}</span>
-      <span className="pixel-font text-[6px]" style={{ color: "#c084fc" }}>
+      <span style={{ fontSize: "22px", lineHeight: 1 }}>{emoji}</span>
+      <span className="pixel-font text-[8px]" style={{ color: "#c084fc" }}>
         {label}
       </span>
       {count > 0 && (
         <span
-          className="absolute -top-1.5 -right-1.5 pixel-box pixel-font text-[6px] w-4 h-4 flex items-center justify-center"
+          className="absolute -top-1.5 -right-1.5 pixel-box pixel-font text-[8px] w-5 h-5 flex items-center justify-center"
           style={{ background: "#7c3aed", color: "#fff" }}
         >
           {count}
@@ -1992,7 +1992,7 @@ export default function GameRoom() {
       <SidePanel side="left" />
       <div className="flex-1 flex flex-col min-w-0">
         {/* HUD */}
-        <div className="px-6 pt-6 pb-3 max-w-2xl mx-auto w-full">
+        <div className="px-8 pt-8 pb-4 w-full">
           <div className="flex items-center gap-3 mb-3">
             <button
               onClick={handleBack}
@@ -2194,13 +2194,13 @@ export default function GameRoom() {
         </div>
 
         {/* Powerups */}
-        <div className="px-6 pb-2 max-w-2xl mx-auto w-full">
+        <div className="px-8 pb-3 w-full">
           <div
-            className="flex items-center gap-3 p-3 pixel-box border-2"
+            className="flex items-center gap-4 p-4 pixel-box border-2"
             style={{ background: "#0d0520", borderColor: "#2d1060" }}
           >
             <span
-              className="pixel-font text-[6px] shrink-0"
+              className="pixel-font text-[8px] shrink-0"
               style={{ color: "#4c1d95" }}
             >
               POWERUPS:
@@ -2260,8 +2260,8 @@ export default function GameRoom() {
         </div>
 
         {/* Question + Choices */}
-        <div className="flex-1 flex items-center justify-center px-6 pb-8">
-          <div className="flex items-center gap-6 w-full max-w-5xl">
+        <div className="flex-1 flex items-center justify-center px-8 pb-8">
+          <div className="flex items-center gap-8 w-full max-w-7xl">
             {/* Left avatar panel */}
             <div
               className="hidden md:flex flex-col items-center shrink-0"
@@ -2323,7 +2323,7 @@ export default function GameRoom() {
 
             <div className="flex-1 flex flex-col gap-5">
               <div
-                className="pixel-box border-4 p-7 relative overflow-hidden"
+                className="pixel-box border-4 p-10 relative overflow-hidden"
                 style={{
                   background: "linear-gradient(135deg,#1a0a35,#0f0820)",
                   borderColor: "#7c3aed",
@@ -2344,7 +2344,7 @@ export default function GameRoom() {
                   />
                 ))}
                 <div
-                  className="pixel-font text-[7px] mb-4 flex items-center justify-between"
+                  className="pixel-font text-[9px] mb-6 flex items-center justify-between"
                   style={{ color: "#4c1d95" }}
                 >
                   <span>
@@ -2356,7 +2356,7 @@ export default function GameRoom() {
                 </div>
                 <h3
                   className="pixel-font text-center leading-loose"
-                  style={{ fontSize: "14px", color: "#e9d5ff" }}
+                  style={{ fontSize: "18px", color: "#e9d5ff" }}
                 >
                   {current?.text}
                 </h3>
