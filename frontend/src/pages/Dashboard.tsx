@@ -1018,7 +1018,7 @@ function SubscriptionPage({ lightMode = false }: { lightMode?: boolean }) {
     {
       key: "premium",
       name: "PREMIUM",
-      price: "₱129.99",
+      price: "₱149.99",
       period: "per month",
       color: "#38bdf8",
       border: "#0e7490",
