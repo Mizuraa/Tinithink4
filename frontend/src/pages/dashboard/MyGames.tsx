@@ -20,7 +20,6 @@ import {
   Lock,
   XCircle,
   CheckCircle,
-  TrendingUp,
   BookOpen,
 } from "lucide-react";
 
@@ -38,6 +37,8 @@ type DbGame = {
 
 type ChoiceInput = { text: string; isCorrect: boolean };
 type QuestionInput = { text: string; choices: ChoiceInput[] };
+
+const LOCAL_WA_KEY = "tini_wrong_answers";
 
 type WrongAnswer = {
   id: string;
@@ -107,7 +108,6 @@ export default function MyGames() {
   // Share/Join Modal State
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareCode, setShareCode] = useState("");
-  const [shareGameId, setShareGameId] = useState<string | null>(null);
 
   // Separate Join Modal State
   const [showJoinModal, setShowJoinModal] = useState(false);
@@ -191,7 +191,6 @@ export default function MyGames() {
       );
       const code = session.session_code;
       setShareCode(code || "");
-      setShareGameId(gameId);
       setShowShareModal(true);
       try {
         await navigator.clipboard.writeText(code || "");
@@ -684,6 +683,7 @@ export default function MyGames() {
 
       if (scoreError) throw scoreError;
 
+      // ── Fixed: guard against empty array before Math.max ─────────────────
       if (scoreData && scoreData.length > 0) {
         const totalCorrect = scoreData.reduce(
           (sum, p) => sum + (p.total_correct || 0),
@@ -693,29 +693,59 @@ export default function MyGames() {
           (sum, p) => sum + (p.total_answered || 0),
           0,
         );
+        const scores = scoreData.map((p) => p.score || 0);
+        const streaks = scoreData.map((p) => p.streak || 0);
 
         setStats({
           total_games: scoreData.length,
           total_correct: totalCorrect,
           total_answered: totalAnswered,
-          current_streak: Math.max(...scoreData.map((p) => p.streak || 0)),
-          highest_score: Math.max(...scoreData.map((p) => p.score || 0)),
+          current_streak: streaks.length > 0 ? Math.max(...streaks) : 0,
+          highest_score: scores.length > 0 ? Math.max(...scores) : 0,
           accuracy:
             totalAnswered > 0
               ? Math.round((totalCorrect / totalAnswered) * 100)
               : 0,
         });
+      } else {
+        // No data yet — reset to zero state cleanly
+        setStats({
+          total_games: 0,
+          total_correct: 0,
+          total_answered: 0,
+          current_streak: 0,
+          highest_score: 0,
+          accuracy: 0,
+        });
       }
 
-      // Fetch the real wrong answers from the table you just checked
-      const { data: wrongData, error: wrongError } = await supabase
+      // Fetch wrong answers — merge DB results with localStorage fallback
+      const { data: wrongData } = await supabase
         .from("wrong_answers")
         .select("*")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
-      if (wrongError) throw wrongError;
-      setWrongAnswers(wrongData || []);
+      // Read locally-saved wrong answers
+      let localWrong: WrongAnswer[] = [];
+      try {
+        const raw = localStorage.getItem(LOCAL_WA_KEY);
+        const all: (WrongAnswer & { user_id: string })[] = raw
+          ? JSON.parse(raw)
+          : [];
+        localWrong = all.filter((a) => a.user_id === user.id);
+      } catch {}
+
+      // Merge: DB rows take priority, fill in any missing from localStorage
+      const dbIds = new Set((wrongData || []).map((r: WrongAnswer) => r.id));
+      const merged = [
+        ...(wrongData || []),
+        ...localWrong.filter((a) => !dbIds.has(a.id)),
+      ].sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      );
+      setWrongAnswers(merged);
     } catch (e: any) {
       console.error("Error loading stats:", e);
     } finally {
@@ -1273,14 +1303,12 @@ export default function MyGames() {
                             type="button"
                             onClick={() => {
                               setEditDifficulty(d);
-                              // Re-pad/trim the new-question inputs
                               setEditGameChoiceInputs(
                                 Array.from(
                                   { length: getChoicesCountForDifficulty(d) },
                                   () => ({ text: "", isCorrect: false }),
                                 ),
                               );
-                              // Re-pad/trim inline editor if open
                               if (editingGameQIdx !== null) {
                                 const req = getChoicesCountForDifficulty(d);
                                 setEditingGameQChoices((prev) =>
@@ -1657,50 +1685,54 @@ export default function MyGames() {
             ) : (
               <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {[
-                    { label: "GAMES", val: stats.total_games, color: "cyan" },
-                    {
-                      label: "ACCURACY",
-                      val: `${stats.accuracy}%`,
-                      color: "green",
-                    },
-                    {
-                      label: "CORRECT",
-                      val: `${stats.total_correct}/${stats.total_answered}`,
-                      color: "yellow",
-                    },
-                    {
-                      label: "HIGH SCORE",
-                      val: stats.highest_score,
-                      color: "purple",
-                    },
-                    {
-                      label: "STREAK",
-                      val: stats.current_streak,
-                      color: "red",
-                    },
-                    {
-                      label: "ANSWERED",
-                      val: stats.total_answered,
-                      color: "blue",
-                    },
-                  ].map(({ label, val, color }) => (
-                    <div
-                      key={label}
-                      className={`pixel-box border-2 border-${color}-500 bg-purple-900/50 p-3 text-center`}
-                    >
-                      <div
-                        className={`pixel-font text-[7px] text-${color}-400 mb-1`}
-                      >
-                        {label}
-                      </div>
-                      <div
-                        className={`pixel-font text-2xl text-${color}-300 font-bold`}
-                      >
-                        {val}
-                      </div>
+                  <div className="pixel-box border-2 border-cyan-500 bg-purple-900/50 p-3 text-center">
+                    <div className="pixel-font text-[7px] text-cyan-400 mb-1">
+                      GAMES
                     </div>
-                  ))}
+                    <div className="pixel-font text-2xl text-cyan-300 font-bold">
+                      {stats.total_games}
+                    </div>
+                  </div>
+                  <div className="pixel-box border-2 border-green-500 bg-purple-900/50 p-3 text-center">
+                    <div className="pixel-font text-[7px] text-green-400 mb-1">
+                      ACCURACY
+                    </div>
+                    <div className="pixel-font text-2xl text-green-300 font-bold">
+                      {stats.accuracy}%
+                    </div>
+                  </div>
+                  <div className="pixel-box border-2 border-yellow-500 bg-purple-900/50 p-3 text-center">
+                    <div className="pixel-font text-[7px] text-yellow-400 mb-1">
+                      CORRECT
+                    </div>
+                    <div className="pixel-font text-2xl text-yellow-300 font-bold">
+                      {stats.total_correct}/{stats.total_answered}
+                    </div>
+                  </div>
+                  <div className="pixel-box border-2 border-purple-500 bg-purple-900/50 p-3 text-center">
+                    <div className="pixel-font text-[7px] text-purple-400 mb-1">
+                      HIGH SCORE
+                    </div>
+                    <div className="pixel-font text-2xl text-purple-300 font-bold">
+                      {stats.highest_score}
+                    </div>
+                  </div>
+                  <div className="pixel-box border-2 border-red-500 bg-purple-900/50 p-3 text-center">
+                    <div className="pixel-font text-[7px] text-red-400 mb-1">
+                      STREAK
+                    </div>
+                    <div className="pixel-font text-2xl text-red-300 font-bold">
+                      {stats.current_streak}
+                    </div>
+                  </div>
+                  <div className="pixel-box border-2 border-blue-500 bg-purple-900/50 p-3 text-center">
+                    <div className="pixel-font text-[7px] text-blue-400 mb-1">
+                      ANSWERED
+                    </div>
+                    <div className="pixel-font text-2xl text-blue-300 font-bold">
+                      {stats.total_answered}
+                    </div>
+                  </div>
                 </div>
 
                 <div className="pixel-box border-2 border-red-600 bg-red-950/30 p-3">
@@ -1737,7 +1769,7 @@ export default function MyGames() {
                         className="text-green-500 mx-auto mb-2"
                       />
                       <p className="pixel-font text-[8px] text-green-400">
-                        NO WRONG ANSWERS! 🎉
+                        NO WRONG ANSWERS YET! 🎉
                       </p>
                     </div>
                   ) : (

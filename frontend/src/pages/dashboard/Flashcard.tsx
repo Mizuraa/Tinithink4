@@ -1,14 +1,3 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// Flashcard.tsx — Updated
-// Changes:
-//  • Study mode is a full-screen overlay (toggle open/close)
-//  • Auto-opens study mode when a full path is selected
-//  • Pagination: 10 cards per page
-//  • Front = TERM (answer field), Back = MEANING (question field)
-//  • Flip is top-to-bottom (rotateX)
-//  • Calmer visuals (no scan line, softer glows, muted borders)
-// ─────────────────────────────────────────────────────────────────────────────
-
 import {
   useState,
   useEffect,
@@ -39,7 +28,7 @@ import {
 import { supabase, getCurrentUser } from "../../lib/supabase";
 import { AVATAR_IMAGES } from "../../../public/AvatarImages";
 
-// ─── Avatar Types & Helpers (mirrored from Settings) ─────────────────────────
+// ─── Avatar Types & Helpers
 
 type AvatarGender = "female" | "male";
 type AvatarChar = "1" | "2" | "3" | "4";
@@ -123,8 +112,8 @@ export type FlashcardData = {
   subject: string | null;
   grade_level: string | null;
   quarter: string | null;
-  question: string; // stores the MEANING/DEFINITION
-  answer: string; // stores the TERM/WORD
+  question: string;
+  answer: string;
   is_public: boolean;
   is_system?: boolean;
 };

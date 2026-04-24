@@ -156,6 +156,28 @@ const GLOBAL_CSS = `
   .door-hard  {animation:hardGlow   1.2s ease-in-out infinite;}
 `;
 
+// ─── LOCAL WRONG-ANSWER STORE ─────────────────────────────────────────────────
+const LOCAL_WA_KEY = "tini_wrong_answers";
+type LocalWrongAnswer = {
+  id: string;
+  user_id: string;
+  game_id: string | null;
+  game_title: string;
+  question_text: string;
+  wrong_choice: string;
+  correct_choice: string;
+  difficulty: string;
+  created_at: string;
+};
+function saveWrongAnswerLocally(entry: LocalWrongAnswer) {
+  try {
+    const raw = localStorage.getItem(LOCAL_WA_KEY);
+    const arr: LocalWrongAnswer[] = raw ? JSON.parse(raw) : [];
+    arr.unshift(entry);
+    localStorage.setItem(LOCAL_WA_KEY, JSON.stringify(arr.slice(0, 500)));
+  } catch {}
+}
+
 // ─── GAME AVATAR ──────────────────────────────────────────────────────────────
 function GameAvatar({
   emotion,
@@ -650,8 +672,32 @@ function ShopScreen({
             </div>
           </div>
 
+          {/* ── LARGE AVATAR (same treatment as in-game) ── */}
           <div className="flex justify-center mb-6">
-            <GameAvatar emotion="idle" size={72} cfg={avatarCfg} />
+            <div className="relative flex flex-col items-center">
+              <div
+                className="relative flex items-center justify-center"
+                style={{
+                  background:
+                    "radial-gradient(circle, rgba(124,58,237,0.15) 0%, transparent 70%)",
+                  borderRadius: "50%",
+                  padding: "8px",
+                }}
+              >
+                <GameAvatar emotion="idle" size={220} cfg={avatarCfg} />
+              </div>
+              {/* Pixel shadow/platform */}
+              <div
+                className="mt-1 pixel-box"
+                style={{
+                  width: "160px",
+                  height: "8px",
+                  background:
+                    "linear-gradient(90deg, transparent, #7c3aed55, transparent)",
+                  boxShadow: "0 0 12px #7c3aed88",
+                }}
+              />
+            </div>
           </div>
 
           <div
@@ -835,6 +881,7 @@ export default function GameRoom() {
     double: 0,
   });
   const [difficulty, setDifficulty] = useState<Difficulty>("easy");
+  const [gameTitle, setGameTitle] = useState<string>("");
   const [wrongAttempts, setWrongAttempts] = useState(0);
   const [questions, setQuestions] = useState<QuestionWithChoices[]>([]);
   const [index, setIndex] = useState(0);
@@ -876,9 +923,15 @@ export default function GameRoom() {
   const [shieldBroken, setShieldBroken] = useState(false);
   const [powerupMsg, setPowerupMsg] = useState<string | null>(null);
 
+  // Refs to track running totals for player_scores upsert
+  const totalCorrectRef = useRef(0);
+  const totalAnsweredRef = useRef(0);
+
   const timerRef = useRef<any>(null);
   const livesRef = useRef(3);
   const streakRef = useRef(0);
+  const scoreRef = useRef(0);
+  const gameTitleRef = useRef("");
   const current = questions[index];
 
   useEffect(() => {
@@ -896,6 +949,9 @@ export default function GameRoom() {
   useEffect(() => {
     streakRef.current = streak;
   }, [streak]);
+  useEffect(() => {
+    scoreRef.current = score;
+  }, [score]);
   useEffect(() => {
     if (!sessionId || !isMultiplayer) return;
     const sub = subscribeToGameSession(sessionId, handlePlayerUpdate);
@@ -1035,6 +1091,43 @@ export default function GameRoom() {
     const newLives = Math.max(0, livesRef.current - 1);
     livesRef.current = newLives;
     setLives(newLives);
+
+    if (current) {
+      totalAnsweredRef.current += 1;
+      const correctChoice = current.choices.find((c) => c.is_correct);
+      getCurrentUser().then((user) => {
+        if (!user) return;
+        const waEntry: LocalWrongAnswer = {
+          id: `${user.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          user_id: user.id,
+          game_id: gameId ?? null,
+          game_title: gameTitleRef.current,
+          question_text: current.text,
+          wrong_choice: "⏰ TIME OUT",
+          correct_choice: correctChoice?.text ?? "",
+          difficulty: difficulty,
+          created_at: new Date().toISOString(),
+        };
+        saveWrongAnswerLocally(waEntry);
+        supabase.from("wrong_answers").insert(waEntry).then();
+
+        supabase
+          .from("player_scores")
+          .upsert(
+            {
+              user_id: user.id,
+              session_id: sessionId ?? "",
+              score: scoreRef.current,
+              total_correct: totalCorrectRef.current,
+              total_answered: totalAnsweredRef.current,
+              streak: 0,
+            },
+            { onConflict: "user_id,session_id" },
+          )
+          .then();
+      });
+    }
+
     if (newLives <= 0) {
       setTimeout(() => {
         setFinished(true);
@@ -1059,10 +1152,12 @@ export default function GameRoom() {
 
   async function loadGame(gid: string) {
     setLoading(true);
+    totalCorrectRef.current = 0;
+    totalAnsweredRef.current = 0;
     try {
       const { data: game } = await supabase
         .from("games")
-        .select("is_multiplayer,max_players,difficulty")
+        .select("is_multiplayer,max_players,difficulty,title")
         .eq("id", gid)
         .single();
       const multi = game?.is_multiplayer || false;
@@ -1071,6 +1166,8 @@ export default function GameRoom() {
         searchParams.get("difficulty") ||
         "easy") as Difficulty;
       setDifficulty(dbDiff);
+      setGameTitle(game?.title ?? "");
+      gameTitleRef.current = game?.title ?? "";
       const user = await getCurrentUser();
       if (!user) {
         navigate("/login");
@@ -1156,6 +1253,7 @@ export default function GameRoom() {
       setLives(3);
       livesRef.current = 3;
       setScore(0);
+      scoreRef.current = 0;
       setStreak(0);
       streakRef.current = 0;
       setBestStreak(0);
@@ -1214,7 +1312,11 @@ export default function GameRoom() {
     const chosen = current.choices.find((c) => c.id === choiceId);
     const isCorrect = chosen?.is_correct ?? false;
     const cfg = DIFF_CONFIG[difficulty];
+
+    totalAnsweredRef.current += 1;
+
     if (isCorrect) {
+      totalCorrectRef.current += 1;
       setAnswerResult("correct");
       setAvatarEmotion("correct");
       const newStreak = streakRef.current + 1;
@@ -1226,7 +1328,9 @@ export default function GameRoom() {
         Math.max(50, timeLeft * 5) * mult * (doubleXP ? 2 : 1),
       );
       const coinsEarned = Math.round((10 + timeLeft) * (doubleXP ? 2 : 1));
-      setScore((s) => s + pts);
+      const newScore = scoreRef.current + pts;
+      setScore(newScore);
+      scoreRef.current = newScore;
       setScorePopup(pts);
       setCoinPopup(coinsEarned);
       setCoins((c) => c + coinsEarned);
@@ -1240,10 +1344,11 @@ export default function GameRoom() {
         showPowerupMsg("❤️ RARE DROP! Golden Heart!");
         sounds.powerup();
       }
-      if (sessionId) {
-        try {
-          const user = await getCurrentUser();
-          if (user) {
+
+      try {
+        const user = await getCurrentUser();
+        if (user) {
+          if (sessionId) {
             const { data: player } = await supabase
               .from("game_session_players")
               .select("score,current_question")
@@ -1260,10 +1365,23 @@ export default function GameRoom() {
                 .eq("session_id", sessionId)
                 .eq("user_id", user.id);
           }
-        } catch (e) {
-          console.error(e);
+
+          await supabase.from("player_scores").upsert(
+            {
+              user_id: user.id,
+              session_id: sessionId ?? "",
+              score: newScore,
+              total_correct: totalCorrectRef.current,
+              total_answered: totalAnsweredRef.current,
+              streak: newStreak,
+            },
+            { onConflict: "user_id,session_id" },
+          );
         }
+      } catch (e) {
+        console.error(e);
       }
+
       setTimeout(() => {
         setAvatarEmotion("idle");
         advanceQuestion();
@@ -1288,17 +1406,57 @@ export default function GameRoom() {
       const nl = Math.max(0, livesRef.current - 1);
       setLives(nl);
       livesRef.current = nl;
-      if (sessionId) {
-        getCurrentUser().then((user) => {
-          if (!user) return;
+
+      const correctChoice = current.choices.find((c) => c.is_correct);
+      const wrongChoice = current.choices.find((c) => c.id === choiceId);
+      getCurrentUser().then((user) => {
+        if (!user) return;
+        const waEntry: LocalWrongAnswer = {
+          id: `${user.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          user_id: user.id,
+          game_id: gameId ?? null,
+          game_title: gameTitleRef.current,
+          question_text: current.text,
+          wrong_choice: wrongChoice?.text ?? "",
+          correct_choice: correctChoice?.text ?? "",
+          difficulty: difficulty,
+          created_at: new Date().toISOString(),
+        };
+        saveWrongAnswerLocally(waEntry);
+        supabase
+          .from("wrong_answers")
+          .insert(waEntry)
+          .then(({ error }) => {
+            if (error) console.error("wrong_answers insert error:", error);
+          });
+
+        supabase
+          .from("player_scores")
+          .upsert(
+            {
+              user_id: user.id,
+              session_id: sessionId ?? "",
+              score: scoreRef.current,
+              total_correct: totalCorrectRef.current,
+              total_answered: totalAnsweredRef.current,
+              streak: 0,
+            },
+            { onConflict: "user_id,session_id" },
+          )
+          .then(({ error }) => {
+            if (error) console.error("player_scores upsert error:", error);
+          });
+
+        if (sessionId) {
           supabase
             .from("game_session_players")
             .update({ lives: nl })
-            .eq("session_id", sessionId!)
+            .eq("session_id", sessionId)
             .eq("user_id", user.id)
             .then();
-        });
-      }
+        }
+      });
+
       if (nl <= 0) {
         setTimeout(() => {
           setFinished(true);
@@ -1365,6 +1523,7 @@ export default function GameRoom() {
       setFinished(false);
       setWon(false);
       setScore(0);
+      scoreRef.current = 0;
       setLives(3);
       livesRef.current = 3;
       setIndex(0);
@@ -1379,6 +1538,8 @@ export default function GameRoom() {
       setEliminatedChoices([]);
       setHintChoice(null);
       setDoubleXP(false);
+      totalCorrectRef.current = 0;
+      totalAnsweredRef.current = 0;
       setGamePhase("shop");
     }
   }
@@ -1854,29 +2015,7 @@ export default function GameRoom() {
             >
               {cfg.label}
             </div>
-            <div className="shrink-0 relative">
-              <GameAvatar
-                emotion={avatarEmotion}
-                size={48}
-                cfg={avatarConfig}
-              />
-              {avatarEmotion === "correct" && (
-                <div
-                  className="powerup-pop absolute -top-5 left-1/2 -translate-x-1/2 pixel-font text-[7px] whitespace-nowrap"
-                  style={{ color: "#4ade80" }}
-                >
-                  ★ NICE!
-                </div>
-              )}
-              {avatarEmotion === "wrong" && (
-                <div
-                  className="powerup-pop absolute -top-5 left-1/2 -translate-x-1/2 pixel-font text-[7px] whitespace-nowrap"
-                  style={{ color: "#f87171" }}
-                >
-                  ✗ OOPS
-                </div>
-              )}
-            </div>
+
             <div
               className={`flex items-center gap-2 px-3 py-2 pixel-box border-2 shrink-0 ${heartShake ? "h-lose" : ""}`}
               style={{ background: "#1a0a35", borderColor: "#7c2d12" }}
@@ -2122,80 +2261,141 @@ export default function GameRoom() {
 
         {/* Question + Choices */}
         <div className="flex-1 flex items-center justify-center px-6 pb-8">
-          <div className="w-full max-w-2xl flex flex-col gap-5">
+          <div className="flex items-center gap-6 w-full max-w-5xl">
+            {/* Left avatar panel */}
             <div
-              className="pixel-box border-4 p-7 relative overflow-hidden"
-              style={{
-                background: "linear-gradient(135deg,#1a0a35,#0f0820)",
-                borderColor: "#7c3aed",
-                boxShadow:
-                  "0 0 22px rgba(124,58,237,0.25),8px 8px 0 rgba(88,28,135,0.5)",
-              }}
+              className="hidden md:flex flex-col items-center shrink-0"
+              style={{ width: "420px" }}
             >
-              {[
-                "top-1 left-1",
-                "top-1 right-1",
-                "bottom-1 left-1",
-                "bottom-1 right-1",
-              ].map((pos) => (
+              <div className="relative flex flex-col items-center">
                 <div
-                  key={pos}
-                  className={`absolute ${pos} w-2 h-2`}
-                  style={{ background: "#a855f7" }}
+                  className="mb-2 px-3 py-1 pixel-box border-2 pixel-font text-[7px] transition-all"
+                  style={{
+                    background:
+                      avatarEmotion === "correct"
+                        ? "#052e16"
+                        : avatarEmotion === "wrong"
+                          ? "#2d0a0a"
+                          : "#1a0a35",
+                    borderColor:
+                      avatarEmotion === "correct"
+                        ? "#4ade80"
+                        : avatarEmotion === "wrong"
+                          ? "#f87171"
+                          : "#7c3aed",
+                    color:
+                      avatarEmotion === "correct"
+                        ? "#4ade80"
+                        : avatarEmotion === "wrong"
+                          ? "#f87171"
+                          : "#a855f7",
+                    minWidth: "70px",
+                    textAlign: "center",
+                  }}
+                ></div>
+                <div
+                  className="relative flex items-center justify-center"
+                  style={{
+                    background:
+                      "radial-gradient(circle, rgba(124,58,237,0.15) 0%, transparent 70%)",
+                    borderRadius: "50%",
+                    padding: "8px",
+                  }}
+                >
+                  <GameAvatar
+                    emotion={avatarEmotion}
+                    size={400}
+                    cfg={avatarConfig}
+                  />
+                </div>
+                <div
+                  className="mt-1 pixel-box"
+                  style={{
+                    width: "260px",
+                    height: "8px",
+                    background:
+                      "linear-gradient(90deg, transparent, #7c3aed55, transparent)",
+                    boxShadow: "0 0 12px #7c3aed88",
+                  }}
                 />
-              ))}
-              <div
-                className="pixel-font text-[7px] mb-4 flex items-center justify-between"
-                style={{ color: "#4c1d95" }}
-              >
-                <span>
-                  QUESTION {index + 1} / {questions.length}
-                </span>
-                <span style={{ color: cfg.accentColor }}>
-                  {choiceCount} CHOICES · {cfg.label}
-                </span>
               </div>
-              <h3
-                className="pixel-font text-center leading-loose"
-                style={{ fontSize: "14px", color: "#e9d5ff" }}
-              >
-                {current?.text}
-              </h3>
             </div>
 
-            {choiceCount <= 3 ? (
-              <div className="flex flex-col gap-4">
-                {displayChoices.map((choice, i) =>
-                  renderChoiceButton(choice, i),
-                )}
-              </div>
-            ) : choiceCount === 4 ? (
-              <div className="grid grid-cols-2 gap-4">
-                {displayChoices.map((choice, i) =>
-                  renderChoiceButton(choice, i),
-                )}
-              </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-2 gap-4">
-                  {displayChoices
-                    .slice(0, 4)
-                    .map((choice, i) => renderChoiceButton(choice, i))}
+            <div className="flex-1 flex flex-col gap-5">
+              <div
+                className="pixel-box border-4 p-7 relative overflow-hidden"
+                style={{
+                  background: "linear-gradient(135deg,#1a0a35,#0f0820)",
+                  borderColor: "#7c3aed",
+                  boxShadow:
+                    "0 0 22px rgba(124,58,237,0.25),8px 8px 0 rgba(88,28,135,0.5)",
+                }}
+              >
+                {[
+                  "top-1 left-1",
+                  "top-1 right-1",
+                  "bottom-1 left-1",
+                  "bottom-1 right-1",
+                ].map((pos) => (
+                  <div
+                    key={pos}
+                    className={`absolute ${pos} w-2 h-2`}
+                    style={{ background: "#a855f7" }}
+                  />
+                ))}
+                <div
+                  className="pixel-font text-[7px] mb-4 flex items-center justify-between"
+                  style={{ color: "#4c1d95" }}
+                >
+                  <span>
+                    QUESTION {index + 1} / {questions.length}
+                  </span>
+                  <span style={{ color: cfg.accentColor }}>
+                    {choiceCount} CHOICES · {cfg.label}
+                  </span>
                 </div>
-                <div className="flex justify-center">
-                  {renderChoiceButton(displayChoices[4], 4, {
-                    width: "calc(50% - 8px)",
-                  })}
-                </div>
-              </>
-            )}
+                <h3
+                  className="pixel-font text-center leading-loose"
+                  style={{ fontSize: "14px", color: "#e9d5ff" }}
+                >
+                  {current?.text}
+                </h3>
+              </div>
 
-            <p
-              className="pixel-font text-center text-[7px]"
-              style={{ color: "#2d1060" }}
-            >
-              ▼ TAP OR PRESS 1–{choiceCount} ▼
-            </p>
+              {choiceCount <= 3 ? (
+                <div className="flex flex-col gap-4">
+                  {displayChoices.map((choice, i) =>
+                    renderChoiceButton(choice, i),
+                  )}
+                </div>
+              ) : choiceCount === 4 ? (
+                <div className="grid grid-cols-2 gap-4">
+                  {displayChoices.map((choice, i) =>
+                    renderChoiceButton(choice, i),
+                  )}
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    {displayChoices
+                      .slice(0, 4)
+                      .map((choice, i) => renderChoiceButton(choice, i))}
+                  </div>
+                  <div className="flex justify-center">
+                    {renderChoiceButton(displayChoices[4], 4, {
+                      width: "calc(50% - 8px)",
+                    })}
+                  </div>
+                </>
+              )}
+
+              <p
+                className="pixel-font text-center text-[7px]"
+                style={{ color: "#2d1060" }}
+              >
+                ▼ TAP OR PRESS 1–{choiceCount} ▼
+              </p>
+            </div>
           </div>
         </div>
       </div>

@@ -727,7 +727,7 @@ function TodoPage({ lightMode = false }: { lightMode?: boolean }) {
         >
           <button
             onClick={() => toggleDone(todo.id)}
-            className="flex-shrink-0 transition-all hover:scale-110"
+            className="shrink-0 transition-all hover:scale-110"
             style={{
               color:
                 s === "done"
@@ -762,7 +762,7 @@ function TodoPage({ lightMode = false }: { lightMode?: boolean }) {
             )}
           </div>
           <div
-            className="pixel-font text-[7px] px-2 py-0.5 pixel-box border flex-shrink-0"
+            className="pixel-font text-[7px] px-2 py-0.5 pixel-box border shrink-0"
             style={{
               background: st.badge.bg,
               borderColor: outlineColor,
@@ -779,7 +779,7 @@ function TodoPage({ lightMode = false }: { lightMode?: boolean }) {
           </div>
           <button
             onClick={() => deleteTodo(todo.id)}
-            className="flex-shrink-0 hover:opacity-100 opacity-40 transition-opacity"
+            className="shrink-0 hover:opacity-100 opacity-40 transition-opacity"
             style={{ color: "#f87171" }}
           >
             <Trash2 size={12} />
