@@ -22,6 +22,13 @@ import {
   Square,
   AlertCircle,
 } from "lucide-react";
+import FlashCardIcon from "../assets/Avatars/Icons/Flashcard.png";
+import LeaderboardIcon from "../assets/Avatars/Icons/Leaderboard.png";
+import LockIcon from "../assets/Avatars/Icons/Lock.png";
+import NewIcon from "../assets/Avatars/Icons/New.png";
+import StreakIcon from "../assets/Avatars/Icons/Streak.png";
+import CheckScheduleIcon from "../assets/Avatars/Icons/Checkschedule.png";
+
 import Flashcard from "./dashboard/Flashcard";
 import Reviewer from "./dashboard/Reviewer";
 import MyGames from "./dashboard/MyGames";
@@ -213,7 +220,7 @@ function HomeContent({
       key: "mygames" as MenuKey,
       label: "MY GAMES",
       icon: Gamepad2,
-      color: "#fffff",
+      color: "#ffffff",
       bg: "#2d0f5a",
       border: "#7c3aed",
       desc: "Create & play",
@@ -221,6 +228,7 @@ function HomeContent({
     {
       key: "flashcard" as MenuKey,
       label: "FLASHCARDS",
+      imgSrc: FlashCardIcon,
       icon: CreditCard,
       color: "#38bdf8",
       bg: "#0c2a3a",
@@ -281,14 +289,14 @@ function HomeContent({
         />
         <div
           className="pixel-font text-[8px] mb-1"
-          style={{ color: lightMode ? "#9ca3af" : "#4c1d95" }}
+          style={{ color: lightMode ? "#9ca3af" : "#ffffff" }}
         >
           {greeting}
         </div>
         <div
           className="pixel-font text-base sm:text-lg"
           style={{
-            color: lightMode ? "#1e0a40" : "#fffff",
+            color: lightMode ? "#1e0a40" : "#ffffff",
             textShadow: lightMode ? "none" : "0 0 16px rgba(192,132,252,0.4)",
           }}
         >
@@ -296,7 +304,7 @@ function HomeContent({
         </div>
         <div
           className="pixel-font text-[8px] mt-2"
-          style={{ color: lightMode ? "#9ca3af" : "#3b1d6a" }}
+          style={{ color: lightMode ? "#9ca3af" : "#ffffff" }}
         >
           READY TO LEARN TODAY?
         </div>
@@ -309,17 +317,22 @@ function HomeContent({
             label: "GAMES",
             value: gameCount ?? "—",
             icon: Gamepad2,
-            color: "#fffff",
+            color: "#ffffff",
           },
           {
             label: "STREAK",
-            value: `🔥 ${streakDays}`,
-            icon: Flame,
+            value: `${streakDays}`,
+            imgSrc: StreakIcon,
             color: "#f97316",
             onClick: () => onNavigate("streak"),
           },
-          { label: "RANK", value: "#—", icon: Trophy, color: "#38bdf8" },
-        ].map(({ label, value, icon: Icon, color, onClick }: any) => (
+          {
+            label: "RANK",
+            value: "#—",
+            imgSrc: LeaderboardIcon,
+            color: "#38bdf8",
+          },
+        ].map(({ label, value, icon: Icon, imgSrc, color, onClick }: any) => (
           <div
             key={label}
             onClick={onClick}
@@ -333,13 +346,23 @@ function HomeContent({
               cursor: onClick ? "pointer" : "default",
             }}
           >
-            <Icon size={14} style={{ color, margin: "0 auto 6px" }} />
+            {imgSrc ? (
+              <img
+                src={imgSrc}
+                alt=""
+                width={14}
+                height={14}
+                style={{ imageRendering: "pixelated", margin: "0 auto 6px" }}
+              />
+            ) : (
+              <Icon size={14} style={{ color, margin: "0 auto 6px" }} />
+            )}
             <div className="pixel-font text-[14px]" style={{ color }}>
               {value}
             </div>
             <div
               className="pixel-font text-[7px] mt-1"
-              style={{ color: lightMode ? "#9ca3af" : "#3b1d6a" }}
+              style={{ color: lightMode ? "#9ca3af" : "#ffffff" }}
             >
               {label}
             </div>
@@ -360,13 +383,13 @@ function HomeContent({
       <div>
         <div
           className="pixel-font text-[8px] mb-3 flex items-center gap-2"
-          style={{ color: lightMode ? "#9ca3af" : "#4c1d95" }}
+          style={{ color: lightMode ? "#9ca3af" : "#ffffff" }}
         >
           <Star size={10} style={{ color: "#a855f7" }} /> QUICK ACCESS
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
           {quickActions.map(
-            ({ key, label, icon: Icon, color, bg, border, desc }) => (
+            ({ key, label, icon: Icon, imgSrc, color, bg, border, desc }) => (
               <button
                 key={key}
                 onClick={() => onNavigate(key)}
@@ -379,13 +402,23 @@ function HomeContent({
                     : "3px 3px 0 rgba(0,0,0,0.5)",
                 }}
               >
-                <Icon size={16} style={{ color, marginBottom: 8 }} />
+                {imgSrc ? (
+                  <img
+                    src={imgSrc}
+                    alt=""
+                    width={16}
+                    height={16}
+                    style={{ imageRendering: "pixelated", marginBottom: 8 }}
+                  />
+                ) : (
+                  <Icon size={16} style={{ color, marginBottom: 8 }} />
+                )}
                 <div className="pixel-font text-[9px]" style={{ color }}>
                   {label}
                 </div>
                 <div
                   className="pixel-font text-[7px] mt-1"
-                  style={{ color: lightMode ? "#9ca3af" : "#4c1d95" }}
+                  style={{ color: lightMode ? "#9ca3af" : "#ffffff" }}
                 >
                   {desc}
                 </div>
@@ -406,7 +439,7 @@ function HomeContent({
         <div>
           <div
             className="pixel-font text-[8px] mb-3 flex items-center gap-2"
-            style={{ color: lightMode ? "#9ca3af" : "#4c1d95" }}
+            style={{ color: lightMode ? "#9ca3af" : "#ffffff" }}
           >
             <Gamepad2 size={10} style={{ color: "#a855f7" }} /> MY RECENT GAMES
           </div>
@@ -437,12 +470,12 @@ function HomeContent({
                       ? "#38bdf8"
                       : lightMode
                         ? "#374151"
-                        : "#6b21a8",
+                        : "#ffffff",
                     borderColor: game.is_multiplayer
                       ? "#0e7490"
                       : lightMode
                         ? "#e2e8f0"
-                        : "#3b1d6a",
+                        : "#ffffff",
                     background: game.is_multiplayer
                       ? "#0c2a3a"
                       : lightMode
@@ -458,7 +491,7 @@ function HomeContent({
           <button
             onClick={() => onNavigate("mygames")}
             className="pixel-font text-[8px] mt-2 flex items-center gap-1 hover:brightness-125 transition-colors"
-            style={{ color: lightMode ? "#9ca3af" : "#4c1d95" }}
+            style={{ color: lightMode ? "#9ca3af" : "#ffffff" }}
           >
             SEE ALL <ChevronRight size={10} />
           </button>
@@ -490,7 +523,7 @@ function HomeContent({
         </div>
         <div
           className="pixel-font text-[8px] mb-1"
-          style={{ color: lightMode ? "#9ca3af" : "#6b21a8" }}
+          style={{ color: lightMode ? "#9ca3af" : "#ffffff" }}
         >
           CURRENT PLAN
         </div>
@@ -502,7 +535,7 @@ function HomeContent({
         </div>
         <div
           className="pixel-font text-[8px] mb-3"
-          style={{ color: lightMode ? "#6b7280" : "#4c1d95" }}
+          style={{ color: lightMode ? "#6b7280" : "#ffffff" }}
         >
           3 games/day · Basic flashcards
         </div>
@@ -529,7 +562,7 @@ function HomeContent({
               boxShadow: "3px 3px 0 #0e7490",
             }}
           >
-            👑 PREMIUM — ₱129.99/mo
+            👑 PREMIUM — ₱149.99/mo
           </button>
         </div>
       </div>
@@ -538,28 +571,28 @@ function HomeContent({
       <div>
         <div
           className="pixel-font text-[8px] mb-3 flex items-center gap-2"
-          style={{ color: lightMode ? "#9ca3af" : "#4c1d95" }}
+          style={{ color: lightMode ? "#9ca3af" : "#ffffff" }}
         >
           <Bell size={10} style={{ color: "#f472b6" }} /> ANNOUNCEMENTS
         </div>
         <div className="space-y-2">
           {[
             {
-              icon: "🆕",
+              imgSrc: NewIcon,
               text: "NEW FEATURE – Try the latest game mode!",
               color: "#a855f7",
             },
             {
-              icon: "📅",
+              imgSrc: CheckScheduleIcon,
               text: "CHECK SCHEDULE – Upcoming quizzes.",
               color: "#38bdf8",
             },
             {
-              icon: "🏆",
+              imgSrc: LeaderboardIcon,
               text: "LEADERBOARD – Compete with classmates.",
               color: "#facc15",
             },
-          ].map(({ icon, text, color }) => (
+          ].map(({ imgSrc, text, color }) => (
             <div
               key={text}
               className="pixel-box border-2 px-3 py-2 flex items-start gap-2"
@@ -568,7 +601,17 @@ function HomeContent({
                 borderColor: lightMode ? "#e2e8f0" : "#2d1060",
               }}
             >
-              <span>{icon}</span>
+              <img
+                src={imgSrc}
+                alt=""
+                width={16}
+                height={16}
+                style={{
+                  imageRendering: "pixelated",
+                  flexShrink: 0,
+                  marginTop: 1,
+                }}
+              />
               <span className="pixel-font text-[8px]" style={{ color }}>
                 {text}
               </span>
@@ -689,14 +732,14 @@ function TodoPage({ lightMode = false }: { lightMode?: boolean }) {
       bg: lightMode ? "#ffffff" : "#0d0520",
       badge: { bg: "#1e1b4b", color: "#a5b4fc" },
       text: lightMode ? "#1e0a40" : "#c4b5fd",
-      sub: lightMode ? "#9ca3af" : "#4c1d95",
+      sub: lightMode ? "#9ca3af" : "#ffffff",
     },
     nodate: {
       border: lightMode ? "#e2e8f0" : "#2d1060",
       bg: lightMode ? "#ffffff" : "#0d0520",
       badge: { bg: "#1e1b4b", color: "#a5b4fc" },
       text: lightMode ? "#1e0a40" : "#c4b5fd",
-      sub: lightMode ? "#9ca3af" : "#4c1d95",
+      sub: lightMode ? "#9ca3af" : "#ffffff",
     },
   };
 
@@ -832,7 +875,7 @@ function TodoPage({ lightMode = false }: { lightMode?: boolean }) {
         <div>
           <div
             className="pixel-font text-[8px] mb-0.5"
-            style={{ color: lightMode ? "#9ca3af" : "#6b21a8" }}
+            style={{ color: lightMode ? "#9ca3af" : "#ffffff" }}
           >
             📋 TASK MANAGER
           </div>
@@ -844,7 +887,7 @@ function TodoPage({ lightMode = false }: { lightMode?: boolean }) {
           </div>
           <div
             className="pixel-font text-[7px] mt-1"
-            style={{ color: lightMode ? "#9ca3af" : "#4c1d95" }}
+            style={{ color: lightMode ? "#9ca3af" : "#ffffff" }}
           >
             {todos.filter((t) => !t.done).length} pending · {done.length} done
           </div>
@@ -874,7 +917,7 @@ function TodoPage({ lightMode = false }: { lightMode?: boolean }) {
         >
           <div
             className="pixel-font text-[8px]"
-            style={{ color: lightMode ? "#9ca3af" : "#4c1d95" }}
+            style={{ color: lightMode ? "#9ca3af" : "#ffffff" }}
           >
             NEW TASK
           </div>
@@ -895,7 +938,7 @@ function TodoPage({ lightMode = false }: { lightMode?: boolean }) {
             <div className="flex-1">
               <div
                 className="pixel-font text-[7px] mb-1"
-                style={{ color: lightMode ? "#9ca3af" : "#4c1d95" }}
+                style={{ color: lightMode ? "#9ca3af" : "#ffffff" }}
               >
                 DUE DATE (optional)
               </div>
@@ -955,17 +998,17 @@ function TodoPage({ lightMode = false }: { lightMode?: boolean }) {
         >
           <ClipboardList
             size={28}
-            style={{ color: "#4c1d95", margin: "0 auto 12px" }}
+            style={{ color: "#ffffff", margin: "0 auto 12px" }}
           />
           <div
             className="pixel-font text-[9px]"
-            style={{ color: lightMode ? "#9ca3af" : "#4c1d95" }}
+            style={{ color: lightMode ? "#9ca3af" : "#ffffff" }}
           >
             NO TASKS YET
           </div>
           <div
             className="pixel-font text-[7px] mt-2"
-            style={{ color: lightMode ? "#d1d5db" : "#2d1060" }}
+            style={{ color: lightMode ? "#d1d5db" : "#ffffff" }}
           >
             PRESS + ADD TASK TO GET STARTED
           </div>
@@ -1043,7 +1086,7 @@ function SubscriptionPage({ lightMode = false }: { lightMode?: boolean }) {
       >
         <div
           className="pixel-font text-[8px] mb-1"
-          style={{ color: lightMode ? "#9ca3af" : "#6b21a8" }}
+          style={{ color: lightMode ? "#9ca3af" : "#ffffff" }}
         >
           💎 TINITHINK PLANS
         </div>
@@ -1055,7 +1098,7 @@ function SubscriptionPage({ lightMode = false }: { lightMode?: boolean }) {
         </div>
         <div
           className="pixel-font text-[8px] mt-1"
-          style={{ color: lightMode ? "#6b7280" : "#4c1d95" }}
+          style={{ color: lightMode ? "#6b7280" : "#ffffff" }}
         >
           Upgrade anytime · Cancel anytime
         </div>
@@ -1099,7 +1142,7 @@ function SubscriptionPage({ lightMode = false }: { lightMode?: boolean }) {
                   {plan.price}
                   <span
                     className="text-[9px] ml-1"
-                    style={{ color: lightMode ? "#9ca3af" : "#4c1d95" }}
+                    style={{ color: lightMode ? "#9ca3af" : "#ffffff" }}
                   >
                     {plan.period}
                   </span>
@@ -1129,7 +1172,7 @@ function SubscriptionPage({ lightMode = false }: { lightMode?: boolean }) {
                   color: plan.disabled
                     ? lightMode
                       ? "#9ca3af"
-                      : "#4c1d95"
+                      : "#ffffff"
                     : "#ffffff",
                   whiteSpace: "nowrap",
                 }}
@@ -1150,7 +1193,7 @@ function SubscriptionPage({ lightMode = false }: { lightMode?: boolean }) {
       >
         <div
           className="pixel-font text-[8px]"
-          style={{ color: lightMode ? "#6b7280" : "#4c1d95" }}
+          style={{ color: lightMode ? "#6b7280" : "#ffffff" }}
         >
           🔒 SECURE PAYMENT · RENEW OR CANCEL ANYTIME FROM THIS PAGE
         </div>
@@ -1265,6 +1308,27 @@ export default function Dashboard() {
     setSidebarOpen(false);
   }
 
+  // Helper: render a PNG icon as an <img> matching lucide's size prop API
+  function ImgIcon({
+    src,
+    size = 14,
+    style,
+  }: {
+    src: string;
+    size?: number;
+    style?: React.CSSProperties;
+  }) {
+    return (
+      <img
+        src={src}
+        alt=""
+        width={size}
+        height={size}
+        style={{ imageRendering: "pixelated", flexShrink: 0, ...style }}
+      />
+    );
+  }
+
   const menuItems = [
     { key: "home" as MenuKey, label: "HOME", icon: Home, color: "#c084fc" },
     {
@@ -1276,6 +1340,7 @@ export default function Dashboard() {
     {
       key: "flashcard" as MenuKey,
       label: "FLASHCARD",
+      imgSrc: FlashCardIcon,
       icon: CreditCard,
       color: "#38bdf8",
     },
@@ -1300,18 +1365,21 @@ export default function Dashboard() {
     {
       key: "todo" as MenuKey,
       label: "TO-DO",
+      imgSrc: CheckScheduleIcon,
       icon: ClipboardList,
       color: "#fb923c",
     },
     {
       key: "subscription" as MenuKey,
       label: "PLANS",
+      imgSrc: LockIcon,
       icon: Star,
       color: "#a855f7",
     },
     {
       key: "streak" as MenuKey,
       label: "STREAK",
+      imgSrc: StreakIcon,
       icon: Flame,
       color: "#f97316",
     },
@@ -1515,7 +1583,7 @@ export default function Dashboard() {
           <div
             className="hidden sm:block pixel-font text-[7px] px-2 py-1 pixel-box border"
             style={{
-              color: "#fffff",
+              color: "#ffffff",
               borderColor: "#2d1060",
               background: "#0d0520",
             }}
@@ -1570,7 +1638,7 @@ export default function Dashboard() {
               style={{
                 background: unreadCount > 0 ? "#2d0f5a" : "#1a0a35",
                 borderColor: unreadCount > 0 ? "#7c3aed" : "#3b1d6a",
-                color: unreadCount > 0 ? "#c084fc" : "#4c1d95",
+                color: unreadCount > 0 ? "#c084fc" : "#ffffff",
               }}
             >
               <Bell size={15} />
@@ -1622,7 +1690,7 @@ export default function Dashboard() {
                     {notifications.length === 0 ? (
                       <div
                         className="p-6 text-center pixel-font text-[8px]"
-                        style={{ color: "#3b1d6a" }}
+                        style={{ color: "#ffffff" }}
                       >
                         NO NOTIFICATIONS
                       </div>
@@ -1657,7 +1725,7 @@ export default function Dashboard() {
                           </div>
                           <p
                             className="pixel-font text-[7px]"
-                            style={{ color: "#4c1d95" }}
+                            style={{ color: "#ffffff" }}
                           >
                             {n.message}
                           </p>
@@ -1708,7 +1776,7 @@ export default function Dashboard() {
             style={{ padding: sidebarCollapsed ? "16px 6px" : "16px 12px" }}
           >
             <div className="space-y-1">
-              {menuItems.map(({ key, label, icon: Icon, color }) => {
+              {menuItems.map(({ key, label, icon: Icon, imgSrc, color }) => {
                 const isActive = active === key;
                 return (
                   <button
@@ -1736,21 +1804,34 @@ export default function Dashboard() {
                         ? color
                         : lightMode
                           ? "#374151"
-                          : "#3b1d6a",
+                          : "#ffffff",
                       boxShadow: isActive ? `inset 3px 0 0 ${color}` : "none",
                     }}
                   >
-                    <Icon
-                      size={14}
-                      style={{
-                        color: isActive
-                          ? color
-                          : lightMode
-                            ? "#374151"
-                            : "#3b1d6a",
-                        flexShrink: 0,
-                      }}
-                    />
+                    {imgSrc ? (
+                      <ImgIcon
+                        src={imgSrc}
+                        size={14}
+                        style={{
+                          opacity: isActive ? 1 : 0.55,
+                          filter: isActive
+                            ? `drop-shadow(0 0 3px ${color})`
+                            : undefined,
+                        }}
+                      />
+                    ) : (
+                      <Icon
+                        size={14}
+                        style={{
+                          color: isActive
+                            ? color
+                            : lightMode
+                              ? "#374151"
+                              : "#ffffff",
+                          flexShrink: 0,
+                        }}
+                      />
+                    )}
                     {!sidebarCollapsed && (
                       <>
                         <span className="sidebar-label truncate">{label}</span>
@@ -1851,10 +1932,14 @@ export default function Dashboard() {
                     borderColor: lightMode ? "#e2e8f0" : "#2d1060",
                   }}
                 >
-                  <activeItem.icon
-                    size={16}
-                    style={{ color: activeItem.color }}
-                  />
+                  {activeItem.imgSrc ? (
+                    <ImgIcon src={activeItem.imgSrc} size={16} />
+                  ) : (
+                    <activeItem.icon
+                      size={16}
+                      style={{ color: activeItem.color }}
+                    />
+                  )}
                 </div>
                 <h2
                   className="pixel-font text-sm"
@@ -1883,7 +1968,7 @@ export default function Dashboard() {
             ? "rgba(255,255,255,0.97)"
             : "rgba(9,3,28,0.95)",
           borderColor: lightMode ? "#e2e8f0" : "#1a0a35",
-          color: lightMode ? "#1e0a40" : "#2d1060",
+          color: lightMode ? "#1e0a40" : "#ffffff",
         }}
       >
         <span>© 2026 TINITHINK</span>

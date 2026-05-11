@@ -20,6 +20,9 @@ import {
 } from "lucide-react";
 import { AVATAR_IMAGES } from "../..//public/AvatarImages";
 
+import shieldIcon from "../assets/Avatars/Powerups/Shield.png";
+import doubleXpIcon from "../assets/Avatars/Powerups/DoubleXP.png";
+
 type DbChoice = {
   id: string;
   question_id: string;
@@ -77,10 +80,15 @@ const COMBO_MSGS: Record<number, { text: string; color: string; sub: string }> =
     10: { text: "LEGENDARY!", color: "#facc15", sub: "⭐ Unreal!" },
   };
 
+// ── Icon paths for powerup images ──────────────────────────────────────────
+const SHIELD_ICON = shieldIcon;
+const DOUBLE_XP_ICON = doubleXpIcon;
+
 const SHOP_ITEMS = [
   {
     id: "heart",
     emoji: "❤️",
+    icon: null,
     name: "GOLDEN HEART",
     desc: "Restores 1 life instantly",
     price: 150,
@@ -88,6 +96,7 @@ const SHOP_ITEMS = [
   {
     id: "key",
     emoji: "🔑",
+    icon: null,
     name: "PIXEL KEY",
     desc: "Eliminates wrong answers",
     price: 100,
@@ -95,6 +104,7 @@ const SHOP_ITEMS = [
   {
     id: "shield",
     emoji: "🛡️",
+    icon: SHIELD_ICON,
     name: "SHIELD",
     desc: "Protects streak when wrong",
     price: 120,
@@ -102,6 +112,7 @@ const SHOP_ITEMS = [
   {
     id: "double",
     emoji: "⚡",
+    icon: DOUBLE_XP_ICON,
     name: "DOUBLE XP",
     desc: "2× all points this entire game",
     price: 200,
@@ -571,6 +582,7 @@ function SidePanel({ side }: { side: "left" | "right" }) {
 // ─── POWERUP BTN ──────────────────────────────────────────────────────────────
 function PowerupBtn({
   emoji,
+  iconSrc,
   label,
   count,
   disabled,
@@ -578,6 +590,7 @@ function PowerupBtn({
   onClick,
 }: {
   emoji: string;
+  iconSrc?: string;
   label: string;
   count: number;
   disabled: boolean;
@@ -597,7 +610,16 @@ function PowerupBtn({
         minWidth: "70px",
       }}
     >
-      <span style={{ fontSize: "22px", lineHeight: 1 }}>{emoji}</span>
+      {/* ── Render PNG icon if provided, otherwise fall back to emoji ── */}
+      {iconSrc ? (
+        <img
+          src={iconSrc}
+          alt={label}
+          style={{ width: 24, height: 24, imageRendering: "pixelated" }}
+        />
+      ) : (
+        <span style={{ fontSize: "22px", lineHeight: 1 }}>{emoji}</span>
+      )}
       <span className="pixel-font text-[8px]" style={{ color: "#c084fc" }}>
         {label}
       </span>
@@ -672,7 +694,7 @@ function ShopScreen({
             </div>
           </div>
 
-          {/* ── LARGE AVATAR (same treatment as in-game) ── */}
+          {/* ── LARGE AVATAR ── */}
           <div className="flex justify-center mb-6">
             <div className="relative flex flex-col items-center">
               <div
@@ -686,7 +708,6 @@ function ShopScreen({
               >
                 <GameAvatar emotion="idle" size={220} cfg={avatarCfg} />
               </div>
-              {/* Pixel shadow/platform */}
               <div
                 className="mt-1 pixel-box"
                 style={{
@@ -724,9 +745,23 @@ function ShopScreen({
                     className="pixel-box border-2 p-4 flex items-center gap-4"
                     style={{ background: "#1a0a35", borderColor: "#2d1060" }}
                   >
-                    <span style={{ fontSize: "24px", flexShrink: 0 }}>
-                      {item.emoji}
-                    </span>
+                    {/* ── PNG icon or emoji fallback ── */}
+                    {item.icon ? (
+                      <img
+                        src={item.icon}
+                        alt={item.name}
+                        style={{
+                          width: 28,
+                          height: 28,
+                          imageRendering: "pixelated",
+                          flexShrink: 0,
+                        }}
+                      />
+                    ) : (
+                      <span style={{ fontSize: "24px", flexShrink: 0 }}>
+                        {item.emoji}
+                      </span>
+                    )}
                     <div className="flex-1 min-w-0">
                       <div
                         className="pixel-font text-[8px] mb-1"
@@ -923,7 +958,6 @@ export default function GameRoom() {
   const [shieldBroken, setShieldBroken] = useState(false);
   const [powerupMsg, setPowerupMsg] = useState<string | null>(null);
 
-  // Refs to track running totals for player_scores upsert
   const totalCorrectRef = useRef(0);
   const totalAnsweredRef = useRef(0);
 
@@ -1663,7 +1697,6 @@ export default function GameRoom() {
           ))}
         </div>
         <div className="w-full max-w-5xl relative z-10 flex items-center justify-center gap-12">
-          {/* LEFT SIDE - AVATAR */}
           <div className="flex flex-col items-center gap-3 float">
             <GameAvatar
               emotion={won ? "win" : "lose"}
@@ -1678,7 +1711,6 @@ export default function GameRoom() {
             </div>
           </div>
 
-          {/* RIGHT SIDE - GAME OVER UI */}
           <div
             className="pixel-box border-4 p-12 max-w-md w-full float"
             style={{
@@ -2196,7 +2228,7 @@ export default function GameRoom() {
           </div>
         </div>
 
-        {/* Powerups */}
+        {/* Powerups bar */}
         <div className="px-8 pb-3 w-full">
           <div
             className="flex items-center gap-4 p-4 pixel-box border-2"
@@ -2223,20 +2255,31 @@ export default function GameRoom() {
                 disabled={isAnimating || keyUsed || finished}
                 onClick={usePixelKey}
               />
+              {/* ── Shield uses PNG icon ── */}
               <PowerupBtn
                 emoji="🛡️"
+                iconSrc={SHIELD_ICON}
                 label="SHIELD"
                 count={shields}
                 disabled={true}
                 breaking={shieldBroken}
                 onClick={() => {}}
               />
+              {/* ── Double XP indicator uses PNG icon ── */}
               {doubleXP && (
                 <div
                   className="pixel-box border-2 flex flex-col items-center justify-center gap-1 px-3 py-2"
                   style={{ background: "#1a1000", borderColor: "#eab308" }}
                 >
-                  <span style={{ fontSize: "16px" }}>⚡</span>
+                  <img
+                    src={DOUBLE_XP_ICON}
+                    alt="Double XP"
+                    style={{
+                      width: 20,
+                      height: 20,
+                      imageRendering: "pixelated",
+                    }}
+                  />
                   <span
                     className="pixel-font text-[6px]"
                     style={{ color: "#facc15" }}
