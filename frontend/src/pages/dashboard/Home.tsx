@@ -117,9 +117,11 @@ function getGreeting() {
 
 export default function Home({
   onNavigate,
+  lightMode = false,
 }: {
   onNavigate?: (page: string) => void;
   onPlayGame?: (id: string) => void;
+  lightMode?: boolean;
 }) {
   const [username, setUsername] = useState("");
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -193,6 +195,7 @@ export default function Home({
         width: "100%",
         opacity: mounted ? 1 : 0,
         transition: "opacity .4s ease",
+        background: lightMode ? "#ffffff" : undefined,
       }}
     >
       <style>{S}</style>

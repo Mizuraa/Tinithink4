@@ -60,6 +60,14 @@ type PlayerStats = {
 };
 
 export default function MyGames() {
+  const lm = (() => {
+    try {
+      return localStorage.getItem("tt_light_mode") === "true";
+    } catch {
+      return false;
+    }
+  })();
+
   const navigate = useNavigate();
   const [games, setGames] = useState<DbGame[]>([]);
   const [loading, setLoading] = useState(true);
@@ -831,7 +839,7 @@ export default function MyGames() {
   }
 
   return (
-    <div className="w-full">
+    <div className="w-full" style={{ background: lm ? "#ffffff" : undefined }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
         .pixel-font { font-family: 'Press Start 2P', monospace; }

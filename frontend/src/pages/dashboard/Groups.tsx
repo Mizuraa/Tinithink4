@@ -1,1392 +1,1943 @@
-import React, { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import {
   supabase,
   getCurrentUser,
-  transferGroupAdmin,
-  kickGroupMember,
-  sendGroupInvite,
-  searchUsers,
+  createGameSession,
 } from "../../lib/supabase";
-import { createContext, useContext } from "react";
-const _ThemeCtx = createContext<boolean>(false);
-function useLightMode() {
-  return useContext(_ThemeCtx);
-}
 import {
+  Share2,
+  Play,
   Users,
-  Crown,
-  Shield,
-  UserX,
-  UserPlus,
-  Search,
-  Plus,
+  Pencil,
   X,
-  ChevronRight,
-  Trophy,
-  Edit2,
-  Trash2,
-  Settings,
   Check,
+  Plus,
+  Gamepad2,
+  Trophy,
+  Clock,
+  Globe,
+  Lock,
+  XCircle,
+  CheckCircle,
+  BookOpen,
 } from "lucide-react";
 
-export type GroupType = {
+type DbGame = {
   id: string;
-  name: string;
-  current_admin: string;
-  members: { name: string; points: number; user_id: string; role: string }[];
+  title: string;
+  creator_id: string | null;
+  is_multiplayer: boolean;
+  max_players: number;
+  is_public: boolean;
+  difficulty: string;
+  created_at: string;
+  is_system?: boolean;
 };
 
-const STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
-  .pf { font-family: 'Press Start 2P', cursive; }
-  .pb { border-radius: 0; }
-  @keyframes fadeUp  { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
-  @keyframes popIn   { 0%{opacity:0;transform:scale(0.88)} 60%{transform:scale(1.03)} 100%{opacity:1;transform:scale(1)} }
-  @keyframes slideIn { from{opacity:0;transform:translateX(16px)} to{opacity:1;transform:translateX(0)} }
-  @keyframes pulse   { 0%,100%{opacity:1} 50%{opacity:0.3} }
-  @keyframes scanMove{ from{top:-10%} to{top:110%} }
-  @keyframes rankPop { 0%{transform:scale(0.5);opacity:0} 70%{transform:scale(1.15)} 100%{transform:scale(1);opacity:1} }
-  .fade-up  { animation: fadeUp 0.3s ease both; }
-  .pop-in   { animation: popIn 0.3s cubic-bezier(0.34,1.56,0.64,1) both; }
-  .slide-in { animation: slideIn 0.3s ease both; }
-  .scan-line{ animation: scanMove 8s linear infinite; }
-  .g-input {
-    background: rgba(8,3,24,0.9); border: 2px solid #2d1060;
-    color: #e9d5ff; border-radius: 0; padding: 11px 13px;
-    font-family: 'Press Start 2P', cursive; font-size: 9px;
-    outline: none; width: 100%; box-sizing: border-box;
-    transition: border-color 0.2s, box-shadow 0.2s;
-  }
-  .g-input:focus { border-color: #a855f7; box-shadow: 0 0 8px rgba(168,85,247,0.2); }
-  .g-input::placeholder { color: #2d1060; }
-  .lm .g-row{background:#ffffff!important;border-color:#e2e8f0!important;}
-  .lm .g-card{background:#ffffff!important;border-color:#e2e8f0!important;}
-  .lm .g-input{background:#ffffff!important;border-color:#e2e8f0!important;color:#1e0a40!important;}
-  .lm .g-input::placeholder{color:#9ca3af!important;}
-  .lm .search-row{background:#ffffff!important;border-color:#e2e8f0!important;}
-  .lm .search-row input{color:#1e0a40!important;}
-  .lm .modal-box{background:#ffffff!important;border-color:#7c3aed!important;}
-  .g-select { appearance: none; cursor: pointer; }
-  .g-select option { background: #0d0620; color: #e9d5ff; }
-  .g-btn {
-    display: flex; align-items: center; justify-content: center; gap: 7px;
-    padding: 11px 14px; border-radius: 0; cursor: pointer;
-    font-family: 'Press Start 2P', cursive; font-size: 9px;
-    border: 2px solid; transition: filter 0.15s, transform 0.08s;
-  }
-  .g-btn:hover:not(:disabled) { filter: brightness(1.15); }
-  .g-btn:active { transform: translateY(1px); }
-  .g-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  .g-btn.primary  { background: rgba(14,116,144,0.4); border-color: #22d3ee; color: #67e8f9; }
-  .g-btn.success  { background: rgba(20,83,45,0.5); border-color: #22c55e; color: #4ade80; }
-  .g-btn.danger   { background: rgba(127,29,29,0.5); border-color: #ef4444; color: #f87171; }
-  .g-btn.purple   { background: rgba(124,58,237,0.3); border-color: #7c3aed; color: #c084fc; }
-  .g-btn.sm { padding: 7px 10px; font-size: 8px; }
-  .group-row {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 12px 14px; border: 2px solid #1a0a35; cursor: pointer;
-    transition: border-color 0.2s, background 0.2s; position: relative;
-    background: rgba(8,3,24,0.7);
-  }
-  .group-row:hover { border-color: #4c1d95; background: rgba(45,16,96,0.2); }
-  .group-row.active { border-color: #7c3aed; background: rgba(124,58,237,0.1); box-shadow: 0 0 10px rgba(124,58,237,0.15); }
-  .member-row {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 10px 12px; border: 1px solid #1a0a35;
-    background: rgba(8,3,24,0.5); position: relative;
-    transition: border-color 0.15s;
-  }
-  .member-row:hover { border-color: #2d1060; }
-  .rank-badge {
-    width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
-    border: 2px solid; font-family: 'Press Start 2P', cursive; font-size: 8px;
-    animation: rankPop 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
-  }
-  .rank-1 { background: rgba(161,127,0,0.3); border-color: #fbbf24; color: #fde68a; }
-  .rank-2 { background: rgba(107,114,128,0.3); border-color: #9ca3af; color: #e5e7eb; }
-  .rank-3 { background: rgba(124,63,18,0.3); border-color: #c2813a; color: #fcd9ab; }
-  .rank-n { background: rgba(45,16,96,0.3); border-color: #4c1d95; color: #7c3aed; }
-  .modal-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.7);
-    backdrop-filter: blur(4px); z-index: 40;
-    display: flex; align-items: center; justify-content: center; padding: 16px;
-  }
-  .modal-box {
-    background: rgba(8,3,24,0.97); border: 3px solid #7c3aed;
-    padding: 24px; max-width: 400px; width: 100%;
-    box-shadow: 0 0 30px rgba(124,58,237,0.3), 8px 8px 0 #1e0a40;
-    position: relative; max-height: 80vh; overflow-y: auto;
-  }
-  .corner-dot { position: absolute; width: 6px; height: 6px; }
-  .pts-flash {
-    position: absolute; right: 8px; top: 0;
-    font-family: 'Press Start 2P', cursive; font-size: 9px; color: #4ade80;
-    animation: fadeUp 0.5s ease both, pulse 0.5s ease 0.3s;
-    pointer-events: none;
-  }
-  .toast {
-    position: fixed; bottom: 24px; right: 24px; z-index: 999;
-    padding: 10px 16px; border: 2px solid; border-radius: 0;
-    font-family: 'Press Start 2P', cursive; font-size: 8px;
-    animation: popIn 0.3s cubic-bezier(0.34,1.56,0.64,1) both;
-    box-shadow: 4px 4px 0 rgba(0,0,0,0.4);
-  }
-  .toast.ok  { background: rgba(20,83,45,0.95); border-color: #22c55e; color: #86efac; }
-  .toast.err { background: rgba(127,29,29,0.95); border-color: #ef4444; color: #fca5a5; }
-  .confirm-box {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 60;
-    display: flex; align-items: center; justify-content: center; padding: 16px;
-  }
-  .confirm-inner {
-    background: rgba(8,3,24,0.98); border: 3px solid #ef4444;
-    padding: 24px; max-width: 320px; width: 100%;
-    box-shadow: 0 0 30px rgba(239,68,68,0.25), 6px 6px 0 #1e0a40;
-    text-align: center; position: relative;
-  }
-  .g-btn.warning { background: rgba(146,64,14,0.5); border-color: #f59e0b; color: #fde68a; }
-  .tab-btn {
-    flex: 1; padding: 9px 8px; font-family: 'Press Start 2P', cursive; font-size: 8px;
-    border: none; cursor: pointer; transition: background 0.15s, color 0.15s; border-radius: 0;
-  }
-`;
+type ChoiceInput = { text: string; isCorrect: boolean };
+type QuestionInput = { text: string; choices: ChoiceInput[] };
 
-const Groups: React.FC = () => {
-  const lm = useLightMode();
-  const [groups, setGroups] = useState<GroupType[]>([]);
+const LOCAL_WA_KEY = "tini_wrong_answers";
+
+type WrongAnswer = {
+  id: string;
+  game_title: string;
+  question_text: string;
+  wrong_choice: string;
+  correct_choice: string;
+  difficulty: string;
+  created_at: string;
+};
+
+type PlayerStats = {
+  total_games: number;
+  total_correct: number;
+  total_answered: number;
+  current_streak: number;
+  highest_score: number;
+  accuracy: number;
+};
+
+export default function MyGames() {
+  const lm = (() => {
+    try {
+      return localStorage.getItem("tt_light_mode") === "true";
+    } catch {
+      return false;
+    }
+  })();
+
+  const navigate = useNavigate();
+  const [games, setGames] = useState<DbGame[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
   const [showCreate, setShowCreate] = useState(false);
-  const [showInvite, setShowInvite] = useState(false);
-  const [showManage, setShowManage] = useState(false);
-  const [showRename, setShowRename] = useState(false);
-  const [renameValue, setRenameValue] = useState("");
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [groupName, setGroupName] = useState("");
-  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
-  const [userId, setUserId] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [toast, setToast] = useState<{
-    msg: string;
-    type: "ok" | "err";
-  } | null>(null);
-  const [pointsFlash, setPointsFlash] = useState<string | null>(null);
+  const [title, setTitle] = useState("");
+  const [isMultiplayer, setIsMultiplayer] = useState(false);
+  const [maxPlayers, setMaxPlayers] = useState(4);
+  const [isPublic, setIsPublic] = useState(true);
+  const [difficulty, setDifficulty] = useState<"easy" | "normal" | "hard">(
+    "easy",
+  );
+  const [questions, setQuestions] = useState<QuestionInput[]>([]);
+  const [qText, setQText] = useState("");
+  const [choiceInputs, setChoiceInputs] = useState<ChoiceInput[]>([
+    { text: "", isCorrect: false },
+    { text: "", isCorrect: false },
+    { text: "", isCorrect: false },
+  ]);
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editIsMultiplayer, setEditIsMultiplayer] = useState(false);
+  const [editMaxPlayers, setEditMaxPlayers] = useState(4);
+  const [editIsPublic, setEditIsPublic] = useState(true);
+  const [editDifficulty, setEditDifficulty] = useState<
+    "easy" | "normal" | "hard"
+  >("easy");
+
+  // ── Game-level question editing ───────────────────────────────────────────
+  const [editGameQuestions, setEditGameQuestions] = useState<QuestionInput[]>(
+    [],
+  );
+  const [editGameQText, setEditGameQText] = useState("");
+  const [editGameChoiceInputs, setEditGameChoiceInputs] = useState<
+    ChoiceInput[]
+  >([]);
+  const [editingGameQIdx, setEditingGameQIdx] = useState<number | null>(null);
+  const [editingGameQText, setEditingGameQText] = useState("");
+  const [editingGameQChoices, setEditingGameQChoices] = useState<ChoiceInput[]>(
+    [],
+  );
+  const [editQuestionsLoading, setEditQuestionsLoading] = useState(false);
+
+  // Share/Join Modal State
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareCode, setShareCode] = useState("");
+
+  // Separate Join Modal State
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [joinInput, setJoinInput] = useState("");
+
+  // Question Editing State (create panel)
+  const [editingQuestionIdx, setEditingQuestionIdx] = useState<number | null>(
+    null,
+  );
+  const [editQText, setEditQText] = useState("");
+  const [editQChoices, setEditQChoices] = useState<ChoiceInput[]>([]);
+
+  // Stats Modal State
+  const [showStatsModal, setShowStatsModal] = useState(false);
+  const [stats, setStats] = useState<PlayerStats>({
+    total_games: 0,
+    total_correct: 0,
+    total_answered: 0,
+    current_streak: 0,
+    highest_score: 0,
+    accuracy: 0,
+  });
+  const [wrongAnswers, setWrongAnswers] = useState<WrongAnswer[]>([]);
+  const [filterDifficulty, setFilterDifficulty] = useState<
+    "all" | "easy" | "normal" | "hard"
+  >("all");
+  const [statsLoading, setStatsLoading] = useState(false);
 
   useEffect(() => {
-    loadUserAndGroups();
+    loadGames();
   }, []);
 
-  function showToast(msg: string, type: "ok" | "err") {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 2500);
-  }
-
-  async function loadUserAndGroups() {
+  async function loadGames() {
+    setLoading(true);
     try {
       const user = await getCurrentUser();
       if (!user) return;
-      const { data: profile } = await supabase
-        .from("users")
-        .select("username")
-        .eq("id", user.id)
-        .single();
-      if (profile) setUserId(user.id);
-      loadGroups(user.id);
-    } catch (e) {
-      console.error(e);
+      const { data: userGames, error } = await supabase
+        .from("games")
+        .select("*")
+        .eq("creator_id", user.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+
+      const { data: systemGames } = await supabase
+        .from("games")
+        .select("*")
+        .eq("is_system", true)
+        .order("created_at", { ascending: true });
+
+      setGames([...(userGames ?? []), ...(systemGames ?? [])]);
+    } catch (e: any) {
+      console.error("Error loading games:", e);
+    } finally {
+      setLoading(false);
     }
   }
 
-  async function loadGroups(uid: string) {
+  async function handleDelete(gameId: string) {
+    if (!window.confirm("DELETE THIS GAME?")) return;
     try {
-      const { data: gm } = await supabase
-        .from("group_members")
-        .select("group_id")
-        .eq("user_id", uid);
-      if (!gm || gm.length === 0) {
-        setGroups([]);
+      const { error } = await supabase.from("games").delete().eq("id", gameId);
+      if (error) throw error;
+      setGames((g) => g.filter((x) => x.id !== gameId));
+    } catch (e: any) {
+      alert("⚠️ DELETE FAILED: " + e.message);
+    }
+  }
+
+  async function handleShare(gameId: string, _gameTitle: string) {
+    try {
+      const user = await getCurrentUser();
+      if (!user) return;
+      const game = games.find((g) => g.id === gameId);
+      if (!game) return;
+      const session = await createGameSession(
+        gameId,
+        user.id,
+        game.is_multiplayer,
+        game.max_players,
+      );
+      const code = session.session_code;
+      setShareCode(code || "");
+      setShowShareModal(true);
+      try {
+        await navigator.clipboard.writeText(code || "");
+      } catch {}
+    } catch (e: any) {
+      alert("⚠️ FAILED: " + e.message);
+    }
+  }
+
+  function copyCodeToClipboard() {
+    try {
+      navigator.clipboard.writeText(shareCode);
+      alert("✅ Code copied to clipboard!");
+    } catch {
+      alert("⚠️ Failed to copy code");
+    }
+  }
+
+  async function joinGameWithCode() {
+    const code = joinInput.trim().toUpperCase();
+    if (!code) return alert("⚠️ ENTER A CODE");
+
+    try {
+      // Look up the session by its human-readable code
+      const { data: session, error } = await supabase
+        .from("game_sessions")
+        .select("id, game_id")
+        .eq("session_code", code)
+        .single();
+
+      if (error || !session) {
+        alert("⚠️ INVALID CODE. PLEASE TRY AGAIN.");
         return;
       }
-      const groupIds = gm.map((g) => g.group_id);
-      const { data: groupsData } = await supabase
-        .from("groups")
-        .select("id, name, current_admin")
-        .in("id", groupIds);
-      const { data: membersData } = await supabase
-        .from("group_members")
-        .select(
-          `group_id, user_id, points, role, users!group_members_user_id_fkey (username)`,
-        )
-        .in("group_id", groupIds);
-      const groupsMap = new Map<string, GroupType>();
-      groupsData?.forEach((g) =>
-        groupsMap.set(g.id, {
-          id: g.id,
-          name: g.name,
-          current_admin: g.current_admin,
-          members: [],
-        }),
-      );
-      membersData?.forEach((m) => {
-        const g = groupsMap.get(m.group_id);
-        if (g) {
-          const u = m.users as any;
-          g.members.push({
-            name: Array.isArray(u)
-              ? u[0]?.username || "Unknown"
-              : u?.username || "Unknown",
-            points: m.points,
-            user_id: m.user_id,
-            role: m.role,
-          });
-        }
-      });
-      setGroups(Array.from(groupsMap.values()));
-    } catch (e) {
-      console.error(e);
+
+      // Navigate to the session
+      navigate(`/game/${session.game_id}?session=${session.id}`);
+      setShowJoinModal(false);
+      setJoinInput("");
+    } catch (e: any) {
+      alert("⚠️ JOIN FAILED: " + e.message);
     }
   }
 
-  async function handleCreateGroup() {
-    if (!groupName.trim()) {
-      showToast("ENTER GROUP NAME", "err");
-      return;
-    }
+  async function handlePlayMultiplayer(gameId: string) {
     try {
-      const { data: group, error: gErr } = await supabase
-        .from("groups")
+      const user = await getCurrentUser();
+      if (!user) return;
+      const game = games.find((g) => g.id === gameId);
+      if (!game) return;
+      const session = await createGameSession(
+        gameId,
+        user.id,
+        game.is_multiplayer,
+        game.max_players,
+      );
+      navigate(`/game/${gameId}?session=${session.id}`);
+    } catch (e: any) {
+      alert("⚠️ FAILED: " + e.message);
+    }
+  }
+
+  // ── startEdit: now async — loads questions + choices from DB ─────────────
+  async function startEdit(game: DbGame) {
+    setEditingId(game.id);
+    setEditTitle(game.title);
+    setEditIsMultiplayer(game.is_multiplayer);
+    setEditMaxPlayers(game.max_players);
+    setEditIsPublic(game.is_public);
+    const diff = (game.difficulty as "easy" | "normal" | "hard") || "easy";
+    setEditDifficulty(diff);
+    setEditGameQText("");
+    setEditingGameQIdx(null);
+    setEditGameChoiceInputs(
+      Array.from({ length: getChoicesCountForDifficulty(diff) }, () => ({
+        text: "",
+        isCorrect: false,
+      })),
+    );
+
+    setEditQuestionsLoading(true);
+    try {
+      const { data: qs, error: qErr } = await supabase
+        .from("questions")
+        .select("id, text, ordering, choices(id, text, is_correct)")
+        .eq("game_id", game.id)
+        .order("ordering");
+      if (qErr) throw qErr;
+      setEditGameQuestions(
+        (qs ?? []).map((q: any) => ({
+          text: q.text,
+          choices: (q.choices ?? []).map((c: any) => ({
+            text: c.text,
+            isCorrect: c.is_correct,
+          })),
+        })),
+      );
+    } catch (e: any) {
+      console.error("Error loading questions:", e);
+      setEditGameQuestions([]);
+    } finally {
+      setEditQuestionsLoading(false);
+    }
+  }
+
+  // ── saveEdit: persists metadata + replaces all questions/choices ──────────
+  async function saveEdit(gameId: string) {
+    if (!editTitle.trim()) return alert("⚠️ TITLE REQUIRED");
+    if (editGameQuestions.length === 0)
+      return alert("⚠️ ADD AT LEAST ONE QUESTION");
+    try {
+      const { error } = await supabase
+        .from("games")
+        .update({
+          title: editTitle.trim(),
+          is_multiplayer: editIsMultiplayer,
+          max_players: editMaxPlayers,
+          is_public: editIsPublic,
+          difficulty: editDifficulty,
+        })
+        .eq("id", gameId);
+      if (error) throw error;
+
+      // Delete existing questions (choices cascade-delete via FK)
+      const { error: delErr } = await supabase
+        .from("questions")
+        .delete()
+        .eq("game_id", gameId);
+      if (delErr) throw delErr;
+
+      // Re-insert updated questions
+      const { data: insertedQs, error: qErr } = await supabase
+        .from("questions")
+        .insert(
+          editGameQuestions.map((q, idx) => ({
+            game_id: gameId,
+            text: q.text,
+            time_limit:
+              editDifficulty === "easy"
+                ? 30
+                : editDifficulty === "normal"
+                  ? 20
+                  : 15,
+            points: 100,
+            ordering: idx,
+          })),
+        )
+        .select();
+      if (qErr) throw qErr;
+      if (!insertedQs) throw new Error("Question insert failed");
+
+      // Insert choices
+      const { error: cErr } = await supabase.from("choices").insert(
+        insertedQs.flatMap((iq, idx) =>
+          editGameQuestions[idx].choices.map((c) => ({
+            question_id: iq.id,
+            text: c.text,
+            is_correct: c.isCorrect,
+          })),
+        ),
+      );
+      if (cErr) throw cErr;
+
+      setGames((prev) =>
+        prev.map((g) =>
+          g.id === gameId
+            ? {
+                ...g,
+                title: editTitle.trim(),
+                is_multiplayer: editIsMultiplayer,
+                max_players: editMaxPlayers,
+                is_public: editIsPublic,
+                difficulty: editDifficulty,
+              }
+            : g,
+        ),
+      );
+      setEditingId(null);
+    } catch (e: any) {
+      alert("⚠️ UPDATE FAILED: " + e.message);
+    }
+  }
+
+  // ── Helpers for the CREATE panel ──────────────────────────────────────────
+  function updateChoiceInput(idx: number, v: string) {
+    setChoiceInputs(
+      choiceInputs.map((c, i) => (i === idx ? { ...c, text: v } : c)),
+    );
+  }
+
+  function markCorrect(idx: number) {
+    setChoiceInputs(
+      choiceInputs.map((c, i) => ({ ...c, isCorrect: i === idx })),
+    );
+  }
+
+  function addQuestion() {
+    if (!qText.trim()) return alert("⚠️ ENTER QUESTION");
+    if (!choiceInputs.some((c) => c.isCorrect))
+      return alert("⚠️ SELECT CORRECT ANSWER");
+    const requiredChoices = getChoicesCountForDifficulty(difficulty);
+    const filledChoices = choiceInputs.filter((c) => c.text.trim()).length;
+    if (filledChoices < requiredChoices)
+      return alert(
+        `⚠️ FILL ALL ${requiredChoices} CHOICES FOR ${difficulty.toUpperCase()}`,
+      );
+    setQuestions([
+      ...questions,
+      {
+        text: qText.trim(),
+        choices: choiceInputs
+          .filter((c) => c.text.trim())
+          .map((c) => ({ ...c })),
+      },
+    ]);
+    setQText("");
+    setChoiceInputs(initializeChoicesForDifficulty());
+  }
+
+  async function saveGame() {
+    if (!title.trim()) return alert("⚠️ ENTER TITLE");
+    if (questions.length === 0) return alert("⚠️ ADD AT LEAST ONE QUESTION");
+    if (saving) return;
+    const user = await getCurrentUser();
+    if (!user) return alert("⚠️ LOGIN REQUIRED");
+    setSaving(true);
+    try {
+      const { data: gameRows, error: gErr } = await supabase
+        .from("games")
         .insert({
-          name: groupName.trim(),
-          created_by: userId,
-          current_admin: userId,
+          title: title.trim(),
+          creator_id: user.id,
+          is_multiplayer: isMultiplayer,
+          max_players: maxPlayers,
+          is_public: isPublic,
+          difficulty,
         })
         .select()
         .single();
       if (gErr) throw gErr;
-      const { error: mErr } = await supabase.from("group_members").insert({
-        group_id: group.id,
-        user_id: userId,
-        role: "admin",
-        points: 0,
-      });
-      if (mErr) throw mErr;
-      loadGroups(userId);
-      setGroupName("");
-      setShowCreate(false);
-      showToast("GROUP CREATED!", "ok");
-    } catch (e: any) {
-      showToast("CREATE FAILED", "err");
-    }
-  }
+      if (!gameRows) throw new Error("Game not created");
 
-  async function handleTransferAdmin(groupId: string, newAdminId: string) {
-    setLoading(true);
-    try {
-      await transferGroupAdmin(groupId, newAdminId);
-      showToast("ADMIN TRANSFERRED!", "ok");
-      loadGroups(userId);
-    } catch (e: any) {
-      showToast("TRANSFER FAILED", "err");
-    } finally {
-      setLoading(false);
-    }
-  }
+      const { data: insertedQuestions, error: qErr } = await supabase
+        .from("questions")
+        .insert(
+          questions.map((q, idx) => ({
+            game_id: gameRows.id,
+            text: q.text,
+            time_limit: 30,
+            points: 100,
+            ordering: idx,
+          })),
+        )
+        .select();
+      if (qErr) throw qErr;
+      if (!insertedQuestions || insertedQuestions.length !== questions.length)
+        throw new Error("Question mismatch");
 
-  async function handleKickMember(
-    groupId: string,
-    memberId: string,
-    memberName: string,
-  ) {
-    setLoading(true);
-    try {
-      await kickGroupMember(groupId, memberId);
-      showToast(`${memberName} REMOVED`, "ok");
-      loadGroups(userId);
-    } catch (e: any) {
-      showToast("KICK FAILED", "err");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleSearchUsers(q: string) {
-    setSearchQuery(q);
-    if (q.length < 2) {
-      setSearchResults([]);
-      return;
-    }
-    try {
-      const r = await searchUsers(q);
-      setSearchResults(r || []);
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
-  async function handleInviteUser(inviteeId: string) {
-    if (!selectedGroupId) return;
-    setLoading(true);
-    try {
-      await sendGroupInvite(selectedGroupId, userId, inviteeId);
-      showToast("INVITE SENT!", "ok");
-      setShowInvite(false);
-      setSearchQuery("");
-      setSearchResults([]);
-    } catch (e: any) {
-      showToast("INVITE FAILED", "err");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleAddPoints(groupId: string) {
-    try {
-      const { data: cur } = await supabase
-        .from("group_members")
-        .select("points")
-        .eq("group_id", groupId)
-        .eq("user_id", userId)
-        .single();
-      if (!cur) return;
-      const { error } = await supabase
-        .from("group_members")
-        .update({ points: cur.points + 100 })
-        .eq("group_id", groupId)
-        .eq("user_id", userId);
-      if (!error) {
-        loadGroups(userId);
-        setPointsFlash(groupId);
-        setTimeout(() => setPointsFlash(null), 800);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
-  async function handleDeleteGroup(groupId: string) {
-    setLoading(true);
-    try {
-      // Delete all members first, then the group
-      await supabase.from("group_members").delete().eq("group_id", groupId);
-      await supabase.from("group_invites").delete().eq("group_id", groupId);
-      const { error } = await supabase
-        .from("groups")
-        .delete()
-        .eq("id", groupId);
-      if (error) throw error;
-      setGroups((prev) => prev.filter((g) => g.id !== groupId));
-      if (selectedGroupId === groupId) setSelectedGroupId(null);
-      setDeleteConfirm(null);
-      showToast("GROUP DELETED", "ok");
-    } catch (e: any) {
-      showToast("DELETE FAILED", "err");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleRenameGroup(groupId: string) {
-    const name = renameValue.trim();
-    if (!name) {
-      showToast("ENTER A NAME", "err");
-      return;
-    }
-    setLoading(true);
-    try {
-      const { error } = await supabase
-        .from("groups")
-        .update({ name })
-        .eq("id", groupId);
-      if (error) throw error;
-      setGroups((prev) =>
-        prev.map((g) => (g.id === groupId ? { ...g, name } : g)),
+      const { error: cErr } = await supabase.from("choices").insert(
+        insertedQuestions.flatMap((iq, idx) =>
+          questions[idx].choices.map((c) => ({
+            question_id: iq.id,
+            text: c.text,
+            is_correct: c.isCorrect,
+          })),
+        ),
       );
-      setShowRename(false);
-      setRenameValue("");
-      showToast("GROUP RENAMED!", "ok");
+      if (cErr) throw cErr;
+
+      setTitle("");
+      setQuestions([]);
+      setIsMultiplayer(false);
+      setMaxPlayers(4);
+      setIsPublic(true);
+      setDifficulty("easy");
+      setChoiceInputs([
+        { text: "", isCorrect: false },
+        { text: "", isCorrect: false },
+        { text: "", isCorrect: false },
+      ]);
+      setShowCreate(false);
+      await loadGames();
+      alert("✅ Game created successfully!");
     } catch (e: any) {
-      showToast("RENAME FAILED", "err");
+      alert("⚠️ SAVE FAILED: " + e.message);
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   }
 
-  async function handleChangeRole(
-    groupId: string,
-    memberId: string,
-    newRole: string,
-  ) {
-    setLoading(true);
+  const formatDate = (d: string) =>
+    new Date(d).toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+
+  const getChoicesCountForDifficulty = (diff: "easy" | "normal" | "hard") => {
+    const counts = { easy: 3, normal: 4, hard: 5 };
+    return counts[diff];
+  };
+
+  const initializeChoicesForDifficulty = () => {
+    const count = getChoicesCountForDifficulty(difficulty);
+    return Array.from({ length: count }, () => ({
+      text: "",
+      isCorrect: false,
+    }));
+  };
+
+  // ── CREATE panel: inline question editor ──────────────────────────────────
+  function startEditQuestion(idx: number) {
+    setEditingQuestionIdx(idx);
+    setEditQText(questions[idx].text);
+    const requiredCount = getChoicesCountForDifficulty(difficulty);
+    const existing = questions[idx].choices;
+    const adjusted: ChoiceInput[] = Array.from(
+      { length: requiredCount },
+      (_, i) => ({
+        text: existing[i]?.text ?? "",
+        isCorrect: existing[i]?.isCorrect ?? false,
+      }),
+    );
+    if (!adjusted.some((c) => c.isCorrect))
+      adjusted.forEach((c) => (c.isCorrect = false));
+    setEditQChoices(adjusted);
+  }
+
+  function updateEditQChoice(idx: number, v: string) {
+    setEditQChoices(
+      editQChoices.map((c, i) => (i === idx ? { ...c, text: v } : c)),
+    );
+  }
+
+  function markEditQCorrect(idx: number) {
+    setEditQChoices(
+      editQChoices.map((c, i) => ({ ...c, isCorrect: i === idx })),
+    );
+  }
+
+  function saveEditQuestion() {
+    if (!editQText.trim()) return alert("⚠️ ENTER QUESTION");
+    if (!editQChoices.some((c) => c.isCorrect))
+      return alert("⚠️ SELECT CORRECT ANSWER");
+    const requiredCount = getChoicesCountForDifficulty(difficulty);
+    const filledChoices = editQChoices.filter((c) => c.text.trim()).length;
+    if (filledChoices < requiredCount)
+      return alert(
+        `⚠️ FILL ALL ${requiredCount} CHOICES FOR ${difficulty.toUpperCase()}`,
+      );
+    setQuestions(
+      questions.map((q, i) =>
+        i === editingQuestionIdx
+          ? {
+              ...q,
+              text: editQText.trim(),
+              choices: editQChoices.filter((c) => c.text.trim()),
+            }
+          : q,
+      ),
+    );
+    setEditingQuestionIdx(null);
+    setEditQText("");
+    setEditQChoices([]);
+  }
+
+  function cancelEditQuestion() {
+    setEditingQuestionIdx(null);
+    setEditQText("");
+    setEditQChoices([]);
+  }
+
+  // ── EDIT panel: question helpers ──────────────────────────────────────────
+  function updateEditGameChoiceInput(idx: number, v: string) {
+    setEditGameChoiceInputs((prev) =>
+      prev.map((c, i) => (i === idx ? { ...c, text: v } : c)),
+    );
+  }
+
+  function markEditGameCorrect(idx: number) {
+    setEditGameChoiceInputs((prev) =>
+      prev.map((c, i) => ({ ...c, isCorrect: i === idx })),
+    );
+  }
+
+  function addEditGameQuestion() {
+    if (!editGameQText.trim()) return alert("⚠️ ENTER QUESTION");
+    if (!editGameChoiceInputs.some((c) => c.isCorrect))
+      return alert("⚠️ SELECT CORRECT ANSWER");
+    const required = getChoicesCountForDifficulty(editDifficulty);
+    const filled = editGameChoiceInputs.filter((c) => c.text.trim()).length;
+    if (filled < required)
+      return alert(
+        `⚠️ FILL ALL ${required} CHOICES FOR ${editDifficulty.toUpperCase()}`,
+      );
+    setEditGameQuestions((prev) => [
+      ...prev,
+      {
+        text: editGameQText.trim(),
+        choices: editGameChoiceInputs
+          .filter((c) => c.text.trim())
+          .map((c) => ({ ...c })),
+      },
+    ]);
+    setEditGameQText("");
+    setEditGameChoiceInputs(
+      Array.from(
+        { length: getChoicesCountForDifficulty(editDifficulty) },
+        () => ({
+          text: "",
+          isCorrect: false,
+        }),
+      ),
+    );
+  }
+
+  function startEditGameQuestion(idx: number) {
+    setEditingGameQIdx(idx);
+    setEditingGameQText(editGameQuestions[idx].text);
+    const required = getChoicesCountForDifficulty(editDifficulty);
+    const existing = editGameQuestions[idx].choices;
+    const adjusted: ChoiceInput[] = Array.from(
+      { length: required },
+      (_, i) => ({
+        text: existing[i]?.text ?? "",
+        isCorrect: existing[i]?.isCorrect ?? false,
+      }),
+    );
+    if (!adjusted.some((c) => c.isCorrect))
+      adjusted.forEach((c) => (c.isCorrect = false));
+    setEditingGameQChoices(adjusted);
+  }
+
+  function updateEditingGameQChoice(idx: number, v: string) {
+    setEditingGameQChoices((prev) =>
+      prev.map((c, i) => (i === idx ? { ...c, text: v } : c)),
+    );
+  }
+
+  function markEditingGameQCorrect(idx: number) {
+    setEditingGameQChoices((prev) =>
+      prev.map((c, i) => ({ ...c, isCorrect: i === idx })),
+    );
+  }
+
+  function saveEditGameQuestion() {
+    if (!editingGameQText.trim()) return alert("⚠️ ENTER QUESTION");
+    if (!editingGameQChoices.some((c) => c.isCorrect))
+      return alert("⚠️ SELECT CORRECT ANSWER");
+    const required = getChoicesCountForDifficulty(editDifficulty);
+    const filled = editingGameQChoices.filter((c) => c.text.trim()).length;
+    if (filled < required)
+      return alert(
+        `⚠️ FILL ALL ${required} CHOICES FOR ${editDifficulty.toUpperCase()}`,
+      );
+    setEditGameQuestions((prev) =>
+      prev.map((q, i) =>
+        i === editingGameQIdx
+          ? {
+              ...q,
+              text: editingGameQText.trim(),
+              choices: editingGameQChoices.filter((c) => c.text.trim()),
+            }
+          : q,
+      ),
+    );
+    setEditingGameQIdx(null);
+    setEditingGameQText("");
+    setEditingGameQChoices([]);
+  }
+
+  function cancelEditGameQuestion() {
+    setEditingGameQIdx(null);
+    setEditingGameQText("");
+    setEditingGameQChoices([]);
+  }
+
+  // ── Stats ─────────────────────────────────────────────────────────────────
+  async function loadStats() {
+    setStatsLoading(true);
     try {
-      const { error } = await supabase
-        .from("group_members")
-        .update({ role: newRole })
-        .eq("group_id", groupId)
-        .eq("user_id", memberId);
-      if (error) throw error;
-      loadGroups(userId);
-      showToast(`ROLE UPDATED TO ${newRole.toUpperCase()}`, "ok");
+      const user = await getCurrentUser();
+      if (!user) return;
+
+      // Fetch aggregate player scores/streaks
+      const { data: scoreData, error: scoreError } = await supabase
+        .from("player_scores")
+        .select("score, total_correct, total_answered, streak")
+        .eq("user_id", user.id);
+
+      if (scoreError) throw scoreError;
+
+      // ── Fixed: guard against empty array before Math.max ─────────────────
+      if (scoreData && scoreData.length > 0) {
+        const totalCorrect = scoreData.reduce(
+          (sum, p) => sum + (p.total_correct || 0),
+          0,
+        );
+        const totalAnswered = scoreData.reduce(
+          (sum, p) => sum + (p.total_answered || 0),
+          0,
+        );
+        const scores = scoreData.map((p) => p.score || 0);
+        const streaks = scoreData.map((p) => p.streak || 0);
+
+        setStats({
+          total_games: scoreData.length,
+          total_correct: totalCorrect,
+          total_answered: totalAnswered,
+          current_streak: streaks.length > 0 ? Math.max(...streaks) : 0,
+          highest_score: scores.length > 0 ? Math.max(...scores) : 0,
+          accuracy:
+            totalAnswered > 0
+              ? Math.round((totalCorrect / totalAnswered) * 100)
+              : 0,
+        });
+      } else {
+        // No data yet — reset to zero state cleanly
+        setStats({
+          total_games: 0,
+          total_correct: 0,
+          total_answered: 0,
+          current_streak: 0,
+          highest_score: 0,
+          accuracy: 0,
+        });
+      }
+
+      // Fetch wrong answers — merge DB results with localStorage fallback
+      const { data: wrongData } = await supabase
+        .from("wrong_answers")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      // Read locally-saved wrong answers
+      let localWrong: WrongAnswer[] = [];
+      try {
+        const raw = localStorage.getItem(LOCAL_WA_KEY);
+        const all: (WrongAnswer & { user_id: string })[] = raw
+          ? JSON.parse(raw)
+          : [];
+        localWrong = all.filter((a) => a.user_id === user.id);
+      } catch {}
+
+      // Merge: DB rows take priority, fill in any missing from localStorage
+      const dbIds = new Set((wrongData || []).map((r: WrongAnswer) => r.id));
+      const merged = [
+        ...(wrongData || []),
+        ...localWrong.filter((a) => !dbIds.has(a.id)),
+      ].sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      );
+      setWrongAnswers(merged);
     } catch (e: any) {
-      showToast("ROLE CHANGE FAILED", "err");
+      console.error("Error loading stats:", e);
     } finally {
-      setLoading(false);
+      setStatsLoading(false);
     }
   }
 
-  const selectedGroup = groups.find((g) => g.id === selectedGroupId) || null;
-  const isAdmin = selectedGroup
-    ? selectedGroup.current_admin === userId
-    : false;
+  const filteredWrongAnswers = wrongAnswers.filter(
+    (ans) => filterDifficulty === "all" || ans.difficulty === filterDifficulty,
+  );
+
+  if (loading) {
+    return (
+      <div className="w-full flex items-center justify-center p-12">
+        <div className="flex flex-col items-center gap-4">
+          <Gamepad2 className="text-purple-400 animate-pulse" size={40} />
+          <div className="pixel-font text-purple-400 text-xs">
+            LOADING GAMES...
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Reusable choice grid ──────────────────────────────────────────────────
+  function ChoiceGrid({
+    choices,
+    onUpdate,
+    onMarkCorrect,
+  }: {
+    choices: ChoiceInput[];
+    onUpdate: (idx: number, v: string) => void;
+    onMarkCorrect: (idx: number) => void;
+  }) {
+    return (
+      <div
+        className={`grid gap-2 ${
+          choices.length === 5 ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-2"
+        }`}
+      >
+        {choices.map((c, i) => (
+          <div
+            key={i}
+            onClick={() => onMarkCorrect(i)}
+            className="cursor-pointer"
+          >
+            <div
+              className={`pixel-box border-2 p-2 transition-colors ${
+                c.isCorrect
+                  ? "border-green-400 bg-green-900/30"
+                  : "border-purple-700 bg-purple-900/30 hover:border-purple-500"
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <div
+                  className={`w-5 h-5 pixel-box border-2 flex items-center justify-center text-[9px] pixel-font font-bold shrink-0 ${
+                    c.isCorrect
+                      ? "bg-green-500 border-green-300 text-white"
+                      : "bg-purple-800 border-purple-500 text-purple-400"
+                  }`}
+                >
+                  {c.isCorrect ? "✓" : String.fromCharCode(65 + i)}
+                </div>
+                <span className="pixel-font text-[8px] text-purple-400">
+                  {c.isCorrect ? "CORRECT" : "OPTION"}
+                </span>
+              </div>
+              <input
+                value={c.text}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  onUpdate(i, e.target.value);
+                }}
+                onClick={(e) => e.stopPropagation()}
+                placeholder={`CHOICE ${String.fromCharCode(65 + i)}`}
+                className="w-full bg-transparent text-white pixel-font text-[9px] border-0 focus:outline-none"
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   return (
-    <div style={{ width: "100%" }} className={lm ? "lm" : ""}>
-      <style>{STYLES}</style>
-      <div
-        className="scan-line"
-        style={{
-          position: "fixed",
-          left: 0,
-          width: "100%",
-          height: 12,
-          background:
-            "linear-gradient(transparent,rgba(168,85,247,0.03),transparent)",
-          zIndex: 1,
-          pointerEvents: "none",
-        }}
-      />
-      {toast && (
-        <div className={`toast ${toast.type}`}>
-          {toast.type === "ok" ? "✓ " : "⚠ "}
-          {toast.msg}
-        </div>
-      )}
+    <div className="w-full" style={{ background: lm ? "#ffffff" : undefined }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        .pixel-font { font-family: 'Press Start 2P', monospace; }
+        .pixel-box { border-radius: 0; }
+        .game-card { transition: transform 0.1s, box-shadow 0.1s; }
+        .game-card:hover { transform: translate(-2px, -2px); box-shadow: 6px 6px 0 rgba(139,92,246,0.5); }
+        .btn-press:active { transform: translate(2px, 2px); box-shadow: none !important; }
+        input::placeholder, textarea::placeholder { font-family: 'Press Start 2P', monospace; font-size: 0.5rem; opacity: 0.5; }
+        .hide-scroll::-webkit-scrollbar { display: none; }
+        .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+        .diff-btn { transition: background .15s, border-color .15s, transform .08s; }
+        .diff-btn:active { transform: translate(1px,1px); }
+        @keyframes diffGlow { 0%,100%{opacity:.8}50%{opacity:1} }
+        .diff-active { animation: diffGlow 2s ease-in-out infinite; }
+      `}</style>
 
       {/* Header */}
-      <div
-        className="fade-up"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 20,
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Users size={16} color="#a855f7" />
-          <span
-            className="pf"
-            style={{ fontSize: 14, color: lm ? "#7c3aed" : "#c084fc" }}
-          >
-            GROUPS
-          </span>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="pixel-font text-purple-300 text-base sm:text-xl">
+            MY GAMES
+          </h2>
+          <p className="pixel-font text-purple-500 text-[8px] mt-1">
+            {games.length} GAME{games.length !== 1 ? "S" : ""} CREATED
+          </p>
         </div>
-        <button
-          className="g-btn primary sm"
-          onClick={() => setShowCreate((s) => !s)}
-        >
-          <Plus size={11} />
-          {showCreate ? "CANCEL" : "NEW GROUP"}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => {
+              setShowStatsModal(true);
+              loadStats();
+            }}
+            className="btn-press pixel-box pixel-font text-[10px] sm:text-xs px-4 py-3 border-2 flex items-center gap-2 transition-colors bg-yellow-700/80 border-yellow-600 text-yellow-200 hover:bg-yellow-700"
+          >
+            <Trophy size={12} /> STATS
+          </button>
+          <button
+            onClick={() => setShowJoinModal(true)}
+            className="btn-press pixel-box pixel-font text-[10px] sm:text-xs px-4 py-3 border-2 flex items-center gap-2 transition-colors bg-purple-700 border-purple-500 text-purple-200 hover:bg-purple-600"
+          >
+            <Users size={12} /> JOIN
+          </button>
+          <button
+            onClick={() => {
+              setShowCreate(!showCreate);
+              setEditingId(null);
+            }}
+            className={`btn-press pixel-box pixel-font text-[10px] sm:text-xs px-4 py-3 border-2 flex items-center gap-2 transition-colors ${
+              showCreate
+                ? "bg-red-900/80 border-red-500 text-red-300 hover:bg-red-900"
+                : "bg-cyan-600 border-cyan-400 text-white hover:bg-cyan-500"
+            }`}
+          >
+            {showCreate ? (
+              <>
+                <X size={12} /> CANCEL
+              </>
+            ) : (
+              <>
+                <Plus size={12} /> NEW
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
-      {/* Create panel */}
+      {/* ── CREATE FORM ────────────────────────────────────────────────────── */}
       {showCreate && (
         <div
-          className="pop-in"
-          style={{
-            marginBottom: 16,
-            padding: "16px",
-            background: "rgba(8,3,24,0.9)",
-            border: "2px solid #7c3aed",
-            position: "relative",
-            boxShadow: "4px 4px 0 #1e0a40",
-          }}
+          className="mb-6 pixel-box border-4 border-cyan-500 bg-purple-950/90 overflow-hidden"
+          style={{ boxShadow: "6px 6px 0 rgba(6,182,212,0.3)" }}
         >
-          <div
-            className="corner-dot"
-            style={{ top: 0, left: 0, background: "#a855f7" }}
-          />
-          <div
-            className="corner-dot"
-            style={{ top: 0, right: 0, background: "#38bdf8" }}
-          />
-          <div
-            className="pf"
-            style={{
-              fontSize: 8,
-              color: lm ? "#9ca3af" : "#4c1d95",
-              marginBottom: 12,
-            }}
-          >
-            NEW GROUP
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <input
-              className="g-input"
-              value={groupName}
-              onChange={(e) => setGroupName(e.target.value)}
-              placeholder="GROUP NAME..."
-              onKeyDown={(e) => e.key === "Enter" && handleCreateGroup()}
-            />
-            <button
-              className="g-btn success"
-              style={{ whiteSpace: "nowrap" }}
-              onClick={handleCreateGroup}
-            >
-              ▶ CREATE
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
-        {/* Left — group list */}
-        <div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              marginBottom: 10,
-            }}
-          >
-            <div style={{ width: 3, height: 14, background: "#a855f7" }} />
-            <span className="pf" style={{ fontSize: 8, color: "#6b21a8" }}>
-              YOUR GROUPS ({groups.length})
-            </span>
+          <div className="bg-cyan-600 px-4 py-3 flex items-center gap-2">
+            <Plus size={14} className="text-white" />
+            <span className="pixel-font text-white text-xs">CREATE GAME</span>
           </div>
 
-          {groups.length === 0 ? (
-            <div style={{ padding: "32px 0", textAlign: "center" }}>
-              <Users
-                size={32}
-                color={lm ? "#9ca3af" : "#1a0a35"}
-                style={{ margin: "0 auto 10px" }}
+          <div className="p-4 sm:p-6 space-y-5">
+            {/* Title */}
+            <div>
+              <label className="pixel-font text-[9px] text-cyan-400 block mb-2">
+                TITLE
+              </label>
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="GAME TITLE..."
+                className="w-full px-4 py-3 bg-purple-900/50 border-2 border-purple-600 focus:border-cyan-400 text-white pixel-font text-xs pixel-box focus:outline-none transition-colors"
               />
-              <div
-                className="pf"
-                style={{ fontSize: 8, color: lm ? "#9ca3af" : "#1a0a35" }}
+            </div>
+
+            {/* Settings */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                onClick={() => setIsMultiplayer(!isMultiplayer)}
+                className={`btn-press pixel-box border-2 p-3 flex items-center gap-3 transition-colors ${isMultiplayer ? "bg-purple-600/50 border-purple-400" : "bg-purple-900/30 border-purple-700 hover:border-purple-500"}`}
               >
-                NO GROUPS YET
+                <Users
+                  size={16}
+                  className={
+                    isMultiplayer ? "text-cyan-400" : "text-purple-500"
+                  }
+                />
+                <div className="text-left">
+                  <div className="pixel-font text-[9px] text-purple-200">
+                    MULTIPLAYER
+                  </div>
+                  <div className="pixel-font text-[8px] text-purple-500 mt-1">
+                    {isMultiplayer ? "ON" : "OFF"}
+                  </div>
+                </div>
+                <div
+                  className={`ml-auto w-4 h-4 pixel-box border-2 flex items-center justify-center ${isMultiplayer ? "bg-cyan-500 border-cyan-300" : "bg-purple-800 border-purple-600"}`}
+                >
+                  {isMultiplayer && <Check size={10} className="text-white" />}
+                </div>
+              </button>
+
+              <button
+                onClick={() => setIsPublic(!isPublic)}
+                className={`btn-press pixel-box border-2 p-3 flex items-center gap-3 transition-colors ${isPublic ? "bg-green-900/30 border-green-600" : "bg-purple-900/30 border-purple-700 hover:border-purple-500"}`}
+              >
+                {isPublic ? (
+                  <Globe size={16} className="text-green-400" />
+                ) : (
+                  <Lock size={16} className="text-purple-500" />
+                )}
+                <div className="text-left">
+                  <div className="pixel-font text-[9px] text-purple-200">
+                    {isPublic ? "PUBLIC" : "PRIVATE"}
+                  </div>
+                  <div className="pixel-font text-[8px] text-purple-500 mt-1">
+                    {isPublic ? "ANYONE" : "INVITE"}
+                  </div>
+                </div>
+                <div
+                  className={`ml-auto w-4 h-4 pixel-box border-2 flex items-center justify-center ${isPublic ? "bg-green-500 border-green-300" : "bg-purple-800 border-purple-600"}`}
+                >
+                  {isPublic && <Check size={10} className="text-white" />}
+                </div>
+              </button>
+            </div>
+
+            {/* Difficulty */}
+            <div>
+              <label className="pixel-font text-[9px] text-cyan-400 block mb-2">
+                DIFFICULTY
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {(["easy", "normal", "hard"] as const).map((d) => {
+                  const meta = {
+                    easy: {
+                      label: "EASY",
+                      color: "#22c55e",
+                      bg: "#052e16",
+                      desc: "30s · 3 choices",
+                    },
+                    normal: {
+                      label: "NORMAL",
+                      color: "#eab308",
+                      bg: "#1c1400",
+                      desc: "20s · 4 choices",
+                    },
+                    hard: {
+                      label: "HARD",
+                      color: "#ef4444",
+                      bg: "#200000",
+                      desc: "15s · 5 choices",
+                    },
+                  }[d];
+                  const active = difficulty === d;
+                  return (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => {
+                        setDifficulty(d);
+                        setChoiceInputs(
+                          Array.from(
+                            { length: getChoicesCountForDifficulty(d) },
+                            () => ({ text: "", isCorrect: false }),
+                          ),
+                        );
+                        if (editingQuestionIdx !== null) {
+                          const req = getChoicesCountForDifficulty(d);
+                          setEditQChoices((prev) =>
+                            Array.from({ length: req }, (_, i) => ({
+                              text: prev[i]?.text ?? "",
+                              isCorrect: prev[i]?.isCorrect ?? false,
+                            })),
+                          );
+                        }
+                      }}
+                      className={`diff-btn pixel-box border-2 p-3 flex flex-col gap-1 text-left ${active ? "diff-active" : ""}`}
+                      style={{
+                        background: active ? meta.bg : "rgba(88,28,135,0.1)",
+                        borderColor: active ? meta.color : "#4c1d95",
+                      }}
+                    >
+                      <span
+                        className="pixel-font text-[9px]"
+                        style={{ color: active ? meta.color : "#6b21a8" }}
+                      >
+                        {meta.label}
+                      </span>
+                      <span
+                        className="pixel-font text-[7px]"
+                        style={{ color: active ? "#a78bfa" : "#3b1d6a" }}
+                      >
+                        {meta.desc}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {groups.map((g, i) => (
-                <div
-                  key={g.id}
-                  style={{ display: "flex", alignItems: "stretch", gap: 0 }}
-                >
-                  <div
-                    className={`group-row fade-up ${g.id === selectedGroupId ? "active" : ""}`}
-                    style={{ animationDelay: `${i * 50}ms`, flex: 1 }}
-                    onClick={() =>
-                      setSelectedGroupId(g.id === selectedGroupId ? null : g.id)
-                    }
-                  >
-                    <div
-                      style={{ display: "flex", alignItems: "center", gap: 10 }}
-                    >
-                      <div
-                        style={{
-                          width: 8,
-                          height: 8,
-                          background:
-                            g.id === selectedGroupId ? "#a855f7" : "#2d1060",
-                          boxShadow:
-                            g.id === selectedGroupId
-                              ? "0 0 6px #a855f7"
-                              : "none",
-                          transition: "all 0.2s",
-                        }}
-                      />
-                      <span
-                        className="pf"
-                        style={{
-                          fontSize: 9,
-                          color:
-                            g.id === selectedGroupId ? "#e9d5ff" : "#6b21a8",
-                        }}
-                      >
-                        {g.name}
-                      </span>
-                      {g.current_admin === userId && (
-                        <Crown size={10} color="#fbbf24" />
-                      )}
-                    </div>
-                    <div
-                      style={{ display: "flex", alignItems: "center", gap: 8 }}
-                    >
-                      <span
-                        className="pf"
-                        style={{
-                          fontSize: 7,
-                          color: lm ? "#9ca3af" : "#2d1060",
-                        }}
-                      >
-                        {g.members.length}
-                      </span>
-                      <ChevronRight
-                        size={12}
-                        color={g.id === selectedGroupId ? "#a855f7" : "#2d1060"}
-                        style={{
-                          transform:
-                            g.id === selectedGroupId ? "rotate(90deg)" : "none",
-                          transition: "transform 0.2s",
-                        }}
-                      />
-                    </div>
-                  </div>
-                  {g.current_admin === userId && (
-                    <div style={{ display: "flex" }}>
-                      <button
-                        title="Rename group"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedGroupId(g.id);
-                          setRenameValue(g.name);
-                          setShowRename(true);
-                        }}
-                        style={{
-                          background: "rgba(45,16,96,0.4)",
-                          border: `1px solid ${lm ? "#e2e8f0" : "#1a0a35"}`,
-                          borderLeft: "none",
-                          color: "#6b21a8",
-                          padding: "0 10px",
-                          cursor: "pointer",
-                          transition: "color 0.15s, background 0.15s",
-                        }}
-                        onMouseEnter={(e) => {
-                          (e.target as HTMLElement).style.color = "#a855f7";
-                          (e.target as HTMLElement).style.background =
-                            "rgba(124,58,237,0.2)";
-                        }}
-                        onMouseLeave={(e) => {
-                          (e.target as HTMLElement).style.color = "#6b21a8";
-                          (e.target as HTMLElement).style.background =
-                            "rgba(45,16,96,0.4)";
-                        }}
-                      >
-                        <Edit2 size={11} />
-                      </button>
-                      <button
-                        title="Delete group"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleteConfirm(g.id);
-                        }}
-                        style={{
-                          background: "rgba(127,29,29,0.3)",
-                          border: `1px solid ${lm ? "#e2e8f0" : "#1a0a35"}`,
-                          borderLeft: "none",
-                          color: "#7f1d1d",
-                          padding: "0 10px",
-                          cursor: "pointer",
-                          transition: "color 0.15s, background 0.15s",
-                        }}
-                        onMouseEnter={(e) => {
-                          (e.target as HTMLElement).style.color = "#f87171";
-                          (e.target as HTMLElement).style.background =
-                            "rgba(185,28,28,0.3)";
-                        }}
-                        onMouseLeave={(e) => {
-                          (e.target as HTMLElement).style.color = "#7f1d1d";
-                          (e.target as HTMLElement).style.background =
-                            "rgba(127,29,29,0.3)";
-                        }}
-                      >
-                        <Trash2 size={11} />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
 
-        {/* Group Detail */}
-        {selectedGroup && (
-          <div
-            className="slide-in"
-            style={{
-              background: "rgba(8,3,24,0.8)",
-              border: `2px solid ${lm ? "#e2e8f0" : "#2d1060"}`,
-              padding: "18px",
-              position: "relative",
-              boxShadow: "4px 4px 0 #0a0018",
-            }}
-          >
-            <div
-              className="corner-dot"
-              style={{ top: 0, left: 0, background: "#7c3aed" }}
-            />
-            <div
-              className="corner-dot"
-              style={{ top: 0, right: 0, background: "#38bdf8" }}
-            />
-
-            {/* Leaderboard header */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                marginBottom: 16,
-              }}
-            >
-              <Trophy size={13} color="#fbbf24" />
-              <span className="pf" style={{ fontSize: 9, color: "#fbbf24" }}>
-                LEADERBOARD
-              </span>
-              <span
-                className="pf"
-                style={{ fontSize: 7, color: lm ? "#9ca3af" : "#2d1060" }}
-              >
-                — {selectedGroup.name}
-              </span>
-            </div>
-
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 6,
-                marginBottom: 16,
-              }}
-            >
-              {selectedGroup.members
-                .slice()
-                .sort((a, b) => b.points - a.points)
-                .map((member, idx) => (
-                  <div
-                    key={member.user_id}
-                    className="member-row"
-                    style={{ animationDelay: `${idx * 40}ms` }}
-                  >
-                    {pointsFlash === selectedGroup.id &&
-                      member.user_id === userId && (
-                        <div className="pts-flash">+100</div>
-                      )}
-                    <div
-                      style={{ display: "flex", alignItems: "center", gap: 10 }}
-                    >
-                      <div
-                        className={`rank-badge ${idx === 0 ? "rank-1" : idx === 1 ? "rank-2" : idx === 2 ? "rank-3" : "rank-n"}`}
-                        style={{ animationDelay: `${idx * 60}ms` }}
-                      >
-                        {idx === 0 ? "★" : `${idx + 1}`}
-                      </div>
-                      <div>
-                        <div
-                          className="pf"
-                          style={{
-                            fontSize: 8,
-                            color:
-                              member.user_id === userId ? "#c084fc" : "#a1a1aa",
-                          }}
-                        >
-                          {member.name}
-                        </div>
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 4,
-                            marginTop: 3,
-                          }}
-                        >
-                          {member.role === "admin" && (
-                            <>
-                              <Crown size={9} color="#fbbf24" />
-                              <span
-                                className="pf"
-                                style={{ fontSize: 6, color: "#fbbf24" }}
-                              >
-                                ADMIN
-                              </span>
-                            </>
-                          )}
-                          {member.role === "moderator" && (
-                            <>
-                              <Shield size={9} color="#60a5fa" />
-                              <span
-                                className="pf"
-                                style={{ fontSize: 6, color: "#60a5fa" }}
-                              >
-                                MOD
-                              </span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <div
-                      style={{ display: "flex", alignItems: "center", gap: 8 }}
-                    >
-                      <div style={{ textAlign: "right" }}>
-                        <div
-                          className="pf"
-                          style={{
-                            fontSize: 10,
-                            color: idx === 0 ? "#fde68a" : "#7c3aed",
-                          }}
-                        >
-                          {member.points}
-                        </div>
-                        <div
-                          className="pf"
-                          style={{
-                            fontSize: 6,
-                            color: lm ? "#9ca3af" : "#2d1060",
-                          }}
-                        >
-                          PTS
-                        </div>
-                      </div>
-                      {member.user_id === userId && (
-                        <button
-                          className="g-btn primary sm"
-                          onClick={() => handleAddPoints(selectedGroup.id)}
-                        >
-                          +100
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-            </div>
-
-            {/* Admin Controls */}
-            {isAdmin && (
-              <div
-                style={{
-                  borderTop: "1px solid #1a0a35",
-                  paddingTop: 14,
-                  display: "flex",
-                  gap: 8,
-                }}
-              >
-                <button
-                  className="g-btn warning"
-                  style={{ flex: 1 }}
-                  onClick={() => setShowManage(true)}
-                >
-                  <Settings size={11} /> MANAGE MEMBERS
-                </button>
-                <button
-                  className="g-btn success"
-                  style={{ flex: 1 }}
-                  onClick={() => setShowInvite(true)}
-                >
-                  <UserPlus size={11} /> INVITE
-                </button>
+            {isMultiplayer && (
+              <div>
+                <label className="pixel-font text-[9px] text-purple-400 block mb-2">
+                  MAX PLAYERS: {maxPlayers}
+                </label>
+                <input
+                  type="range"
+                  min="2"
+                  max="10"
+                  value={maxPlayers}
+                  onChange={(e) => setMaxPlayers(+e.target.value)}
+                  className="w-full accent-purple-500"
+                />
               </div>
             )}
-          </div>
-        )}
-      </div>
 
-      {/* Manage Members Modal */}
-      {showManage && selectedGroup && (
-        <div className="modal-overlay" onClick={() => setShowManage(false)}>
-          <div
-            className="modal-box pop-in"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              className="corner-dot"
-              style={{ top: 0, left: 0, background: "#fbbf24" }}
-            />
-            <div
-              className="corner-dot"
-              style={{ top: 0, right: 0, background: "#a855f7" }}
-            />
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: 16,
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Settings size={13} color="#fbbf24" />
-                <span className="pf" style={{ fontSize: 9, color: "#fbbf24" }}>
-                  MANAGE MEMBERS
-                </span>
+            {/* Questions */}
+            <div className="border-t-2 border-purple-800 pt-4">
+              <div className="pixel-font text-[9px] text-cyan-400 mb-3 flex items-center gap-2">
+                <Trophy size={12} /> ADD QUESTIONS
               </div>
+
+              <textarea
+                value={qText}
+                onChange={(e) => setQText(e.target.value)}
+                placeholder="TYPE QUESTION..."
+                rows={2}
+                className="w-full px-4 py-3 bg-purple-900/50 border-2 border-purple-600 focus:border-cyan-400 text-white pixel-font text-xs pixel-box focus:outline-none transition-colors mb-3 resize-none"
+              />
+
+              <div className="mb-3">
+                <div className="pixel-font text-[8px] text-cyan-400 mb-2 flex items-center gap-1">
+                  <Lock size={10} /> {getChoicesCountForDifficulty(difficulty)}{" "}
+                  CHOICES LOCKED
+                </div>
+                <ChoiceGrid
+                  choices={choiceInputs}
+                  onUpdate={updateChoiceInput}
+                  onMarkCorrect={markCorrect}
+                />
+              </div>
+              <p className="pixel-font text-[8px] text-purple-600 mb-3">
+                ↑ CLICK TO MARK CORRECT
+              </p>
+
               <button
-                onClick={() => setShowManage(false)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: lm ? "#9ca3af" : "#4c1d95",
-                }}
+                onClick={addQuestion}
+                className="btn-press w-full py-2 bg-purple-700 border-2 border-purple-500 text-purple-200 pixel-font text-[10px] pixel-box hover:bg-purple-600 transition-colors"
               >
-                <X size={15} />
+                + ADD QUESTION
               </button>
             </div>
 
-            {/* Transfer Admin */}
-            <div
-              style={{
-                marginBottom: 16,
-                padding: "12px",
-                background: "rgba(45,16,96,0.2)",
-                border: "1px solid #2d1060",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  marginBottom: 10,
-                }}
-              >
-                <Crown size={11} color="#fbbf24" />
-                <span className="pf" style={{ fontSize: 7, color: "#fbbf24" }}>
-                  TRANSFER ADMIN
-                </span>
-              </div>
-              <select
-                className="g-input g-select"
-                onChange={(e) =>
-                  e.target.value &&
-                  handleTransferAdmin(selectedGroup.id, e.target.value)
-                }
-                disabled={loading}
-              >
-                <option value="">▾ SELECT NEW ADMIN...</option>
-                {selectedGroup.members
-                  .filter((m) => m.user_id !== userId)
-                  .map((m) => (
-                    <option key={m.user_id} value={m.user_id}>
-                      {m.name} ({m.role})
-                    </option>
-                  ))}
-              </select>
-            </div>
-
-            {/* Members list */}
-            <div
-              className="pf"
-              style={{
-                fontSize: 7,
-                color: lm ? "#9ca3af" : "#4c1d95",
-                marginBottom: 8,
-              }}
-            >
-              ALL MEMBERS ({selectedGroup.members.length})
-            </div>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 6,
-                maxHeight: 280,
-                overflowY: "auto",
-                marginBottom: 14,
-              }}
-            >
-              {selectedGroup.members.map((m) => (
-                <div
-                  key={m.user_id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "10px 10px",
-                    background: "rgba(8,3,24,0.6)",
-                    border: `1px solid ${lm ? "#e2e8f0" : "#1a0a35"}`,
-                  }}
-                >
-                  {/* Role icon */}
-                  <div style={{ flexShrink: 0 }}>
-                    {m.role === "admin" ? (
-                      <Crown size={12} color="#fbbf24" />
-                    ) : m.role === "moderator" ? (
-                      <Shield size={12} color="#60a5fa" />
-                    ) : (
-                      <Users size={12} color={lm ? "#9ca3af" : "#4c1d95"} />
-                    )}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div
-                      className="pf"
-                      style={{
-                        fontSize: 8,
-                        color: m.user_id === userId ? "#c084fc" : "#a1a1aa",
-                      }}
-                    >
-                      {m.name}
-                      {m.user_id === userId && " (YOU)"}
-                    </div>
-                    <div
-                      className="pf"
-                      style={{
-                        fontSize: 6,
-                        color: lm ? "#9ca3af" : "#3b1d6a",
-                        marginTop: 2,
-                      }}
-                    >
-                      {m.role.toUpperCase()}
-                    </div>
-                  </div>
-                  {m.user_id !== userId && (
-                    <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
-                      {/* Role toggle */}
-                      <select
-                        value={m.role}
-                        onChange={(e) =>
-                          handleChangeRole(
-                            selectedGroup.id,
-                            m.user_id,
-                            e.target.value,
-                          )
-                        }
-                        disabled={loading}
-                        style={{
-                          background: "rgba(45,16,96,0.5)",
-                          border: "1px solid #2d1060",
-                          color: "#7c3aed",
-                          fontFamily: "'Press Start 2P',cursive",
-                          fontSize: 7,
-                          padding: "4px 6px",
-                          cursor: "pointer",
-                          borderRadius: 0,
-                          outline: "none",
-                        }}
-                      >
-                        <option value="member">MEMBER</option>
-                        <option value="moderator">MOD</option>
-                      </select>
-                      {/* Kick */}
-                      <button
-                        className="g-btn danger sm"
-                        onClick={() =>
-                          handleKickMember(selectedGroup.id, m.user_id, m.name)
-                        }
-                        disabled={loading}
-                        title="Kick member"
-                      >
-                        <UserX size={10} />
-                      </button>
-                    </div>
-                  )}
+            {/* Questions List */}
+            {questions.length > 0 && (
+              <div className="border-2 border-purple-700 pixel-box">
+                <div className="bg-purple-800/50 px-3 py-2 pixel-font text-[9px] text-purple-300 flex items-center gap-2">
+                  <Trophy size={10} /> {questions.length} QUESTION
+                  {questions.length !== 1 ? "S" : ""}
                 </div>
-              ))}
-            </div>
+                <div className="max-h-48 overflow-y-auto hide-scroll divide-y-2 divide-purple-800">
+                  {questions.map((q, idx) => (
+                    <div key={idx}>
+                      {editingQuestionIdx === idx ? (
+                        <div className="px-3 py-3 bg-purple-900/40 space-y-2">
+                          <div className="pixel-font text-[8px] text-cyan-400 mb-2 flex items-center justify-between">
+                            <span>✏️ EDITING Q#{idx + 1}</span>
+                            <span className="text-purple-500">
+                              {getChoicesCountForDifficulty(difficulty)} CHOICES
+                              · {difficulty.toUpperCase()}
+                            </span>
+                          </div>
+                          <textarea
+                            value={editQText}
+                            onChange={(e) => setEditQText(e.target.value)}
+                            placeholder="EDIT QUESTION..."
+                            rows={2}
+                            className="w-full px-2 py-2 bg-purple-900/50 border-2 border-purple-600 focus:border-cyan-400 text-white pixel-font text-[8px] pixel-box focus:outline-none transition-colors resize-none"
+                          />
+                          <ChoiceGrid
+                            choices={editQChoices}
+                            onUpdate={updateEditQChoice}
+                            onMarkCorrect={markEditQCorrect}
+                          />
+                          <p className="pixel-font text-[7px] text-purple-600">
+                            ↑ CLICK CHOICE TO MARK CORRECT
+                          </p>
+                          <div className="flex gap-1">
+                            <button
+                              onClick={saveEditQuestion}
+                              className="btn-press flex-1 py-1 bg-green-700 border-2 border-green-500 text-white pixel-font text-[8px] pixel-box hover:bg-green-600 flex items-center justify-center gap-1"
+                            >
+                              <Check size={8} /> SAVE
+                            </button>
+                            <button
+                              onClick={cancelEditQuestion}
+                              className="btn-press flex-1 py-1 bg-red-800 border-2 border-red-600 text-red-300 pixel-font text-[8px] pixel-box hover:bg-red-700 flex items-center justify-center gap-1"
+                            >
+                              <X size={8} /> CANCEL
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div
+                          className="px-3 py-2 flex items-start gap-2 bg-purple-950/50 group hover:bg-purple-950/70 transition-colors cursor-pointer"
+                          onClick={() => startEditQuestion(idx)}
+                        >
+                          <span className="pixel-font text-[8px] text-purple-500 shrink-0 mt-1">
+                            #{idx + 1}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <div className="pixel-font text-[9px] text-cyan-300 truncate hover:text-cyan-200">
+                              {q.text}
+                            </div>
+                            <div className="flex gap-2 mt-1">
+                              {q.choices.map((c, i) => (
+                                <span
+                                  key={i}
+                                  className={`pixel-font text-[8px] ${c.isCorrect ? "text-green-400" : "text-purple-500"}`}
+                                >
+                                  {String.fromCharCode(65 + i)}
+                                  {c.isCorrect ? "✓" : ""}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setQuestions(
+                                questions.filter((_, i) => i !== idx),
+                              );
+                            }}
+                            className="shrink-0 w-5 h-5 bg-red-900/50 border border-red-700 pixel-box text-red-400 pixel-font text-[10px] flex items-center justify-center hover:bg-red-800 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <button
-              className="g-btn purple"
-              style={{ width: "100%" }}
-              onClick={() => setShowManage(false)}
+              onClick={saveGame}
+              disabled={saving}
+              className="btn-press w-full py-4 bg-cyan-600 border-2 border-cyan-400 text-white pixel-font text-xs pixel-box hover:bg-cyan-500 transition-colors disabled:opacity-50"
+              style={{ boxShadow: "4px 4px 0 rgba(6,182,212,0.4)" }}
             >
-              ✕ CLOSE
+              {saving ? "SAVING..." : "▶ SAVE GAME"}
             </button>
           </div>
         </div>
       )}
 
-      {/* Rename Modal */}
-      {showRename && selectedGroup && (
-        <div className="modal-overlay" onClick={() => setShowRename(false)}>
-          <div
-            className="modal-box pop-in"
-            onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: 320 }}
-          >
+      {/* ── GAMES LIST ─────────────────────────────────────────────────────── */}
+      {games.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 pixel-box border-2 border-purple-800/50 bg-purple-950/30">
+          <Gamepad2 size={48} className="text-purple-700 mb-4" />
+          <p className="pixel-font text-purple-600 text-xs mb-1">NO GAMES</p>
+          <p className="pixel-font text-purple-700 text-[8px]">
+            CLICK NEW TO CREATE
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {games.map((game) => (
             <div
-              className="corner-dot"
-              style={{ top: 0, left: 0, background: "#38bdf8" }}
-            />
-            <div
-              className="corner-dot"
-              style={{ top: 0, right: 0, background: "#a855f7" }}
-            />
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                marginBottom: 16,
-              }}
+              key={game.id}
+              className="game-card pixel-box border-2 border-purple-600 bg-purple-950/70 overflow-hidden"
+              style={{ boxShadow: "4px 4px 0 rgba(88,28,135,0.4)" }}
             >
-              <Edit2 size={13} color="#38bdf8" />
-              <span className="pf" style={{ fontSize: 9, color: "#38bdf8" }}>
-                RENAME GROUP
+              {editingId === game.id ? (
+                /* ──────────────────── EDIT PANEL ──────────────────── */
+                <div className="p-4 space-y-4">
+                  <div className="pixel-font text-[9px] text-cyan-400 mb-2 flex items-center gap-2">
+                    <Pencil size={10} /> EDIT GAME
+                  </div>
+
+                  {/* Title */}
+                  <input
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    className="w-full px-3 py-2 bg-purple-900/50 border-2 border-cyan-400 text-white pixel-font text-xs pixel-box focus:outline-none"
+                  />
+
+                  {/* Multi / Public */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setEditIsMultiplayer(!editIsMultiplayer)}
+                      className={`flex-1 px-3 py-2 pixel-box border-2 pixel-font text-[9px] flex items-center justify-center gap-1 transition-colors ${editIsMultiplayer ? "bg-purple-600 border-purple-400 text-white" : "bg-purple-900/30 border-purple-700 text-purple-400"}`}
+                    >
+                      <Users size={10} /> MULTI
+                    </button>
+                    <button
+                      onClick={() => setEditIsPublic(!editIsPublic)}
+                      className={`flex-1 px-3 py-2 pixel-box border-2 pixel-font text-[9px] flex items-center justify-center gap-1 transition-colors ${editIsPublic ? "bg-green-800 border-green-600 text-green-300" : "bg-purple-900/30 border-purple-700 text-purple-400"}`}
+                    >
+                      {editIsPublic ? <Globe size={10} /> : <Lock size={10} />}{" "}
+                      {editIsPublic ? "PUBLIC" : "PRIV"}
+                    </button>
+                    {editIsMultiplayer && (
+                      <div className="flex-1 flex items-center gap-2 px-3 py-2 bg-purple-900/30 border-2 border-purple-700 pixel-box">
+                        <span className="pixel-font text-[8px] text-purple-400">
+                          MAX
+                        </span>
+                        <input
+                          type="number"
+                          min="2"
+                          max="10"
+                          value={editMaxPlayers}
+                          onChange={(e) => setEditMaxPlayers(+e.target.value)}
+                          className="w-10 bg-transparent text-white pixel-font text-[9px] border-0 focus:outline-none text-center"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Difficulty */}
+                  <div>
+                    <label className="pixel-font text-[9px] text-cyan-400 block mb-2">
+                      DIFFICULTY
+                    </label>
+                    <div className="grid grid-cols-3 gap-1">
+                      {(["easy", "normal", "hard"] as const).map((d) => {
+                        const meta = {
+                          easy: {
+                            label: "EASY",
+                            color: "#22c55e",
+                            bg: "#052e16",
+                            desc: "30s · 3 choices",
+                          },
+                          normal: {
+                            label: "NORMAL",
+                            color: "#eab308",
+                            bg: "#1c1400",
+                            desc: "20s · 4 choices",
+                          },
+                          hard: {
+                            label: "HARD",
+                            color: "#ef4444",
+                            bg: "#200000",
+                            desc: "15s · 5 choices",
+                          },
+                        }[d];
+                        const active = editDifficulty === d;
+                        return (
+                          <button
+                            key={d}
+                            type="button"
+                            onClick={() => {
+                              setEditDifficulty(d);
+                              setEditGameChoiceInputs(
+                                Array.from(
+                                  { length: getChoicesCountForDifficulty(d) },
+                                  () => ({ text: "", isCorrect: false }),
+                                ),
+                              );
+                              if (editingGameQIdx !== null) {
+                                const req = getChoicesCountForDifficulty(d);
+                                setEditingGameQChoices((prev) =>
+                                  Array.from({ length: req }, (_, i) => ({
+                                    text: prev[i]?.text ?? "",
+                                    isCorrect: prev[i]?.isCorrect ?? false,
+                                  })),
+                                );
+                              }
+                            }}
+                            className={`diff-btn pixel-box border-2 py-2 px-1 flex flex-col items-start gap-0.5 ${active ? "diff-active" : ""}`}
+                            style={{
+                              background: active
+                                ? meta.bg
+                                : "rgba(88,28,135,0.1)",
+                              borderColor: active ? meta.color : "#4c1d95",
+                            }}
+                          >
+                            <span
+                              className="pixel-font text-[8px]"
+                              style={{ color: active ? meta.color : "#6b21a8" }}
+                            >
+                              {meta.label}
+                            </span>
+                            <span
+                              className="pixel-font text-[6px]"
+                              style={{ color: active ? "#a78bfa" : "#3b1d6a" }}
+                            >
+                              {meta.desc}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* ── QUESTIONS SECTION ── */}
+                  <div className="border-t-2 border-purple-700 pt-3">
+                    <div className="pixel-font text-[9px] text-cyan-400 mb-3 flex items-center gap-2">
+                      <Trophy size={10} /> QUESTIONS
+                    </div>
+
+                    {editQuestionsLoading ? (
+                      <div className="text-center py-4">
+                        <Gamepad2
+                          className="text-purple-400 animate-pulse mx-auto mb-2"
+                          size={20}
+                        />
+                        <p className="pixel-font text-[8px] text-purple-400">
+                          LOADING...
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Existing questions */}
+                        {editGameQuestions.length > 0 && (
+                          <div className="border-2 border-purple-700 pixel-box mb-3 max-h-64 overflow-y-auto hide-scroll divide-y-2 divide-purple-800">
+                            {editGameQuestions.map((q, idx) => (
+                              <div key={idx}>
+                                {editingGameQIdx === idx ? (
+                                  /* Inline editor for existing question */
+                                  <div className="px-3 py-3 bg-purple-900/40 space-y-2">
+                                    <div className="pixel-font text-[8px] text-cyan-400 mb-1 flex items-center justify-between">
+                                      <span>✏️ Q#{idx + 1}</span>
+                                      <span className="text-purple-500">
+                                        {getChoicesCountForDifficulty(
+                                          editDifficulty,
+                                        )}{" "}
+                                        CHOICES
+                                      </span>
+                                    </div>
+                                    <textarea
+                                      value={editingGameQText}
+                                      onChange={(e) =>
+                                        setEditingGameQText(e.target.value)
+                                      }
+                                      rows={2}
+                                      placeholder="EDIT QUESTION..."
+                                      className="w-full px-2 py-2 bg-purple-900/50 border-2 border-purple-600 focus:border-cyan-400 text-white pixel-font text-[8px] pixel-box focus:outline-none resize-none"
+                                    />
+                                    <ChoiceGrid
+                                      choices={editingGameQChoices}
+                                      onUpdate={updateEditingGameQChoice}
+                                      onMarkCorrect={markEditingGameQCorrect}
+                                    />
+                                    <p className="pixel-font text-[7px] text-purple-600">
+                                      ↑ CLICK CHOICE TO MARK CORRECT
+                                    </p>
+                                    <div className="flex gap-1">
+                                      <button
+                                        onClick={saveEditGameQuestion}
+                                        className="btn-press flex-1 py-1 bg-green-700 border-2 border-green-500 text-white pixel-font text-[8px] pixel-box hover:bg-green-600 flex items-center justify-center gap-1"
+                                      >
+                                        <Check size={8} /> SAVE
+                                      </button>
+                                      <button
+                                        onClick={cancelEditGameQuestion}
+                                        className="btn-press flex-1 py-1 bg-red-800 border-2 border-red-600 text-red-300 pixel-font text-[8px] pixel-box hover:bg-red-700 flex items-center justify-center gap-1"
+                                      >
+                                        <X size={8} /> CANCEL
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div
+                                    className="px-3 py-2 flex items-start gap-2 bg-purple-950/50 group hover:bg-purple-950/70 transition-colors cursor-pointer"
+                                    onClick={() => startEditGameQuestion(idx)}
+                                  >
+                                    <span className="pixel-font text-[8px] text-purple-500 shrink-0 mt-1">
+                                      #{idx + 1}
+                                    </span>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="pixel-font text-[9px] text-cyan-300 truncate">
+                                        {q.text}
+                                      </div>
+                                      <div className="flex gap-2 mt-1 flex-wrap">
+                                        {q.choices.map((c, i) => (
+                                          <span
+                                            key={i}
+                                            className={`pixel-font text-[7px] ${c.isCorrect ? "text-green-400" : "text-purple-500"}`}
+                                          >
+                                            {String.fromCharCode(65 + i)}
+                                            {c.isCorrect ? "✓" : ""}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          startEditGameQuestion(idx);
+                                        }}
+                                        className="w-5 h-5 bg-yellow-900/50 border border-yellow-700 pixel-box text-yellow-400 flex items-center justify-center hover:bg-yellow-800"
+                                      >
+                                        <Pencil size={8} />
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setEditGameQuestions((prev) =>
+                                            prev.filter((_, i) => i !== idx),
+                                          );
+                                        }}
+                                        className="w-5 h-5 bg-red-900/50 border border-red-700 pixel-box text-red-400 pixel-font text-[10px] flex items-center justify-center hover:bg-red-800"
+                                      >
+                                        ×
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Add new question */}
+                        <div className="space-y-2 border-2 border-dashed border-purple-700 pixel-box p-3">
+                          <div className="pixel-font text-[8px] text-purple-400 mb-2">
+                            + NEW QUESTION
+                          </div>
+                          <textarea
+                            value={editGameQText}
+                            onChange={(e) => setEditGameQText(e.target.value)}
+                            placeholder="TYPE QUESTION..."
+                            rows={2}
+                            className="w-full px-3 py-2 bg-purple-900/50 border-2 border-purple-600 focus:border-cyan-400 text-white pixel-font text-[9px] pixel-box focus:outline-none resize-none"
+                          />
+                          <div className="pixel-font text-[7px] text-cyan-400 mb-1 flex items-center gap-1">
+                            <Lock size={8} />{" "}
+                            {getChoicesCountForDifficulty(editDifficulty)}{" "}
+                            CHOICES · {editDifficulty.toUpperCase()}
+                          </div>
+                          <ChoiceGrid
+                            choices={editGameChoiceInputs}
+                            onUpdate={updateEditGameChoiceInput}
+                            onMarkCorrect={markEditGameCorrect}
+                          />
+                          <p className="pixel-font text-[7px] text-purple-600">
+                            ↑ CLICK TO MARK CORRECT
+                          </p>
+                          <button
+                            onClick={addEditGameQuestion}
+                            className="btn-press w-full py-2 bg-purple-700 border-2 border-purple-500 text-purple-200 pixel-font text-[8px] pixel-box hover:bg-purple-600 transition-colors"
+                          >
+                            + ADD QUESTION
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Save / Cancel */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => saveEdit(game.id)}
+                      className="btn-press flex-1 py-2 bg-green-700 border-2 border-green-500 text-white pixel-font text-[9px] pixel-box hover:bg-green-600 flex items-center justify-center gap-1"
+                    >
+                      <Check size={10} /> SAVE
+                    </button>
+                    <button
+                      onClick={() => setEditingId(null)}
+                      className="btn-press flex-1 py-2 bg-purple-800 border-2 border-purple-600 text-purple-300 pixel-font text-[9px] pixel-box hover:bg-purple-700 flex items-center justify-center gap-1"
+                    >
+                      <X size={10} /> CANCEL
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* ──────────────────── GAME CARD ──────────────────── */
+                <>
+                  <div
+                    className="flex items-center gap-2 px-4 py-1 border-b-2 border-purple-800/60"
+                    style={{
+                      background: game.is_system
+                        ? "rgba(30,58,138,0.3)"
+                        : "rgba(88,28,135,0.3)",
+                    }}
+                  >
+                    {game.is_system ? (
+                      <BookOpen size={10} className="text-blue-400" />
+                    ) : game.is_multiplayer ? (
+                      <Users size={10} className="text-cyan-400" />
+                    ) : (
+                      <Gamepad2 size={10} className="text-purple-400" />
+                    )}
+                    <span className="pixel-font text-[8px] text-purple-500">
+                      {game.is_system
+                        ? "SAMPLE"
+                        : game.is_multiplayer
+                          ? "MULTIPLAYER"
+                          : "SOLO"}
+                    </span>
+                    <span className="ml-auto flex items-center gap-1">
+                      {game.is_public ? (
+                        <>
+                          <Globe size={8} className="text-green-500" />
+                          <span className="pixel-font text-[8px] text-green-500">
+                            PUBLIC
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <Lock size={8} className="text-purple-500" />
+                          <span className="pixel-font text-[8px] text-purple-500">
+                            PRIVATE
+                          </span>
+                        </>
+                      )}
+                    </span>
+                  </div>
+                  <div className="p-4">
+                    <div className="flex items-start justify-between gap-2 mb-3">
+                      <div>
+                        <h3 className="pixel-font text-sm sm:text-base text-purple-200 leading-tight">
+                          {game.title.toUpperCase()}
+                        </h3>
+                        <div className="flex items-center gap-3 mt-2">
+                          <span className="flex items-center gap-1 pixel-font text-[8px] text-purple-500">
+                            <Clock size={8} /> {formatDate(game.created_at)}
+                          </span>
+                          {
+                            (
+                              {
+                                easy: (
+                                  <span
+                                    className="flex items-center gap-1 pixel-font text-[8px]"
+                                    style={{ color: "#22c55e" }}
+                                  >
+                                    🟢 EASY
+                                  </span>
+                                ),
+                                normal: (
+                                  <span
+                                    className="flex items-center gap-1 pixel-font text-[8px]"
+                                    style={{ color: "#eab308" }}
+                                  >
+                                    🟡 NORMAL
+                                  </span>
+                                ),
+                                hard: (
+                                  <span
+                                    className="flex items-center gap-1 pixel-font text-[8px]"
+                                    style={{ color: "#ef4444" }}
+                                  >
+                                    🔴 HARD
+                                  </span>
+                                ),
+                              } as any
+                            )[(game.difficulty as string) || "easy"]
+                          }
+                          {game.is_multiplayer && !game.is_system && (
+                            <span className="flex items-center gap-1 pixel-font text-[8px] text-purple-500">
+                              <Users size={8} /> {game.max_players}P
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {game.is_multiplayer && !game.is_system ? (
+                        <button
+                          onClick={() => handlePlayMultiplayer(game.id)}
+                          className="btn-press col-span-2 sm:col-span-1 px-3 py-3 bg-cyan-600 border-2 border-cyan-400 text-white pixel-font text-[9px] pixel-box hover:bg-cyan-500 transition-colors flex items-center justify-center gap-2"
+                          style={{ boxShadow: "3px 3px 0 rgba(6,182,212,0.4)" }}
+                        >
+                          <Play size={12} /> START
+                        </button>
+                      ) : (
+                        <Link
+                          to={`/game/${game.id}`}
+                          className="btn-press col-span-2 sm:col-span-1 px-3 py-3 bg-green-700 border-2 border-green-500 text-white pixel-font text-[9px] pixel-box hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
+                          style={{ boxShadow: "3px 3px 0 rgba(22,163,74,0.4)" }}
+                        >
+                          <Play size={12} /> PLAY
+                        </Link>
+                      )}
+                      <button
+                        onClick={() => startEdit(game)}
+                        className="btn-press px-3 py-3 bg-yellow-700/80 border-2 border-yellow-600 text-yellow-200 pixel-font text-[9px] pixel-box hover:bg-yellow-700 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Pencil size={12} /> EDIT
+                      </button>
+                      <button
+                        onClick={() => handleShare(game.id, game.title)}
+                        className="btn-press px-3 py-3 bg-blue-700/80 border-2 border-blue-600 text-blue-200 pixel-font text-[9px] pixel-box hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Share2 size={12} /> SHARE
+                      </button>
+                      <button
+                        onClick={() => handleDelete(game.id)}
+                        className="btn-press px-3 py-3 bg-red-900/60 border-2 border-red-800 text-red-400 pixel-font text-[9px] pixel-box hover:bg-red-900 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <X size={12} /> DELETE
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── STATS MODAL ────────────────────────────────────────────────────── */}
+      {showStatsModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div
+            className="pixel-box border-4 border-yellow-500 bg-purple-950 w-full max-w-2xl overflow-hidden my-4"
+            style={{ boxShadow: "8px 8px 0 rgba(234,179,8,0.5)" }}
+          >
+            <div className="bg-yellow-700 px-4 py-3 flex items-center gap-2">
+              <Trophy size={14} className="text-white" />
+              <span className="pixel-font text-white text-xs">
+                PLAYER STATS
               </span>
-            </div>
-            <div
-              className="pf"
-              style={{
-                fontSize: 7,
-                color: lm ? "#9ca3af" : "#4c1d95",
-                marginBottom: 8,
-              }}
-            >
-              CURRENT: {selectedGroup.name}
-            </div>
-            <input
-              className="g-input"
-              value={renameValue}
-              onChange={(e) => setRenameValue(e.target.value)}
-              placeholder="NEW NAME..."
-              style={{ marginBottom: 12 }}
-              onKeyDown={(e) =>
-                e.key === "Enter" && handleRenameGroup(selectedGroup.id)
-              }
-              autoFocus
-            />
-            <div style={{ display: "flex", gap: 8 }}>
               <button
-                className="g-btn success"
-                style={{ flex: 1 }}
-                onClick={() => handleRenameGroup(selectedGroup.id)}
-                disabled={loading}
-              >
-                <Check size={11} /> SAVE
-              </button>
-              <button
-                className="g-btn danger"
-                style={{ flex: 1 }}
-                onClick={() => setShowRename(false)}
-              >
-                <X size={11} /> CANCEL
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Confirm */}
-      {deleteConfirm && (
-        <div className="confirm-box">
-          <div className="confirm-inner pop-in">
-            <div
-              className="corner-dot"
-              style={{ top: 0, left: 0, background: "#ef4444" }}
-            />
-            <div
-              className="corner-dot"
-              style={{ top: 0, right: 0, background: "#ef4444" }}
-            />
-            <Trash2
-              size={32}
-              color="#ef4444"
-              style={{ margin: "0 auto 14px" }}
-            />
-            <div
-              className="pf"
-              style={{ fontSize: 10, color: "#f87171", marginBottom: 8 }}
-            >
-              DELETE GROUP?
-            </div>
-            <div
-              className="pf"
-              style={{ fontSize: 7, color: "#7f1d1d", marginBottom: 6 }}
-            >
-              {groups.find((g) => g.id === deleteConfirm)?.name}
-            </div>
-            <div
-              className="pf"
-              style={{
-                fontSize: 7,
-                color: lm ? "#9ca3af" : "#4c1d95",
-                marginBottom: 20,
-              }}
-            >
-              THIS CANNOT BE UNDONE
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                className="g-btn danger"
-                style={{ flex: 1 }}
-                onClick={() => handleDeleteGroup(deleteConfirm)}
-                disabled={loading}
-              >
-                {loading ? (
-                  "DELETING..."
-                ) : (
-                  <>
-                    <Trash2 size={10} /> DELETE
-                  </>
-                )}
-              </button>
-              <button
-                className="g-btn purple"
-                style={{ flex: 1 }}
-                onClick={() => setDeleteConfirm(null)}
-              >
-                <X size={10} /> CANCEL
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Invite Modal */}
-      {showInvite && (
-        <div className="modal-overlay" onClick={() => setShowInvite(false)}>
-          <div
-            className="modal-box pop-in"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              className="corner-dot"
-              style={{ top: 0, left: 0, background: "#a855f7" }}
-            />
-            <div
-              className="corner-dot"
-              style={{ top: 0, right: 0, background: "#38bdf8" }}
-            />
-            <div
-              className="corner-dot"
-              style={{ bottom: 0, left: 0, background: "#f472b6" }}
-            />
-            <div
-              className="corner-dot"
-              style={{ bottom: 0, right: 0, background: "#a855f7" }}
-            />
-
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: 16,
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <UserPlus size={13} color="#a855f7" />
-                <span
-                  className="pf"
-                  style={{ fontSize: 10, color: lm ? "#7c3aed" : "#c084fc" }}
-                >
-                  INVITE TO GROUP
-                </span>
-              </div>
-              <button
-                onClick={() => setShowInvite(false)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: lm ? "#9ca3af" : "#4c1d95",
-                  padding: 4,
-                }}
+                onClick={() => setShowStatsModal(false)}
+                className="ml-auto text-white hover:text-gray-200"
               >
                 <X size={16} />
               </button>
             </div>
-
-            <div style={{ position: "relative", marginBottom: 14 }}>
-              <Search
-                size={12}
-                color={lm ? "#9ca3af" : "#4c1d95"}
-                style={{
-                  position: "absolute",
-                  left: 12,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                }}
-              />
-              <input
-                className="g-input"
-                value={searchQuery}
-                onChange={(e) => handleSearchUsers(e.target.value)}
-                placeholder="SEARCH USERS..."
-                style={{ paddingLeft: 30 }}
-              />
-            </div>
-
-            <div
-              style={{
-                maxHeight: 220,
-                overflowY: "auto",
-                display: "flex",
-                flexDirection: "column",
-                gap: 6,
-                marginBottom: 14,
-              }}
-            >
-              {searchResults.map((user) => (
-                <div
-                  key={user.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "10px 12px",
-                    background: "rgba(45,16,96,0.2)",
-                    border: "1px solid #2d1060",
-                  }}
-                >
-                  <div>
-                    <div
-                      className="pf"
-                      style={{ fontSize: 9, color: lm ? "#7c3aed" : "#c084fc" }}
-                    >
-                      {user.username}
+            {statsLoading ? (
+              <div className="p-6 text-center">
+                <Trophy
+                  className="text-yellow-400 animate-pulse mx-auto mb-4"
+                  size={32}
+                />
+                <p className="pixel-font text-yellow-400 text-[8px]">
+                  LOADING...
+                </p>
+              </div>
+            ) : (
+              <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  <div className="pixel-box border-2 border-cyan-500 bg-purple-900/50 p-3 text-center">
+                    <div className="pixel-font text-[7px] text-cyan-400 mb-1">
+                      GAMES
                     </div>
-                    {user.display_name && (
-                      <div
-                        className="pf"
-                        style={{
-                          fontSize: 7,
-                          color: lm ? "#9ca3af" : "#4c1d95",
-                          marginTop: 3,
-                        }}
-                      >
-                        {user.display_name}
-                      </div>
+                    <div className="pixel-font text-2xl text-cyan-300 font-bold">
+                      {stats.total_games}
+                    </div>
+                  </div>
+                  <div className="pixel-box border-2 border-green-500 bg-purple-900/50 p-3 text-center">
+                    <div className="pixel-font text-[7px] text-green-400 mb-1">
+                      ACCURACY
+                    </div>
+                    <div className="pixel-font text-2xl text-green-300 font-bold">
+                      {stats.accuracy}%
+                    </div>
+                  </div>
+                  <div className="pixel-box border-2 border-yellow-500 bg-purple-900/50 p-3 text-center">
+                    <div className="pixel-font text-[7px] text-yellow-400 mb-1">
+                      CORRECT
+                    </div>
+                    <div className="pixel-font text-2xl text-yellow-300 font-bold">
+                      {stats.total_correct}/{stats.total_answered}
+                    </div>
+                  </div>
+                  <div className="pixel-box border-2 border-purple-500 bg-purple-900/50 p-3 text-center">
+                    <div className="pixel-font text-[7px] text-purple-400 mb-1">
+                      HIGH SCORE
+                    </div>
+                    <div className="pixel-font text-2xl text-purple-300 font-bold">
+                      {stats.highest_score}
+                    </div>
+                  </div>
+                  <div className="pixel-box border-2 border-red-500 bg-purple-900/50 p-3 text-center">
+                    <div className="pixel-font text-[7px] text-red-400 mb-1">
+                      STREAK
+                    </div>
+                    <div className="pixel-font text-2xl text-red-300 font-bold">
+                      {stats.current_streak}
+                    </div>
+                  </div>
+                  <div className="pixel-box border-2 border-blue-500 bg-purple-900/50 p-3 text-center">
+                    <div className="pixel-font text-[7px] text-blue-400 mb-1">
+                      ANSWERED
+                    </div>
+                    <div className="pixel-font text-2xl text-blue-300 font-bold">
+                      {stats.total_answered}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pixel-box border-2 border-red-600 bg-red-950/30 p-3">
+                  <div className="pixel-font text-[8px] text-red-400 mb-3 flex items-center gap-1">
+                    <XCircle size={10} /> WRONG ANSWERS
+                  </div>
+                  <div className="flex gap-1 mb-3 flex-wrap">
+                    {(["all", "easy", "normal", "hard"] as const).map(
+                      (diff) => (
+                        <button
+                          key={diff}
+                          onClick={() => setFilterDifficulty(diff)}
+                          className={`btn-press pixel-box border-2 px-2 py-1 pixel-font text-[8px] transition-colors ${
+                            filterDifficulty === diff
+                              ? diff === "easy"
+                                ? "bg-green-700 border-green-500 text-green-200"
+                                : diff === "normal"
+                                  ? "bg-yellow-700 border-yellow-500 text-yellow-200"
+                                  : diff === "hard"
+                                    ? "bg-red-700 border-red-500 text-red-200"
+                                    : "bg-purple-700 border-purple-500 text-purple-200"
+                              : "bg-purple-900/30 border-purple-700 text-purple-400 hover:border-purple-500"
+                          }`}
+                        >
+                          {diff.toUpperCase()}
+                        </button>
+                      ),
                     )}
                   </div>
+                  {filteredWrongAnswers.length === 0 ? (
+                    <div className="text-center py-4">
+                      <CheckCircle
+                        size={20}
+                        className="text-green-500 mx-auto mb-2"
+                      />
+                      <p className="pixel-font text-[8px] text-green-400">
+                        NO WRONG ANSWERS YET! 🎉
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {filteredWrongAnswers.map((ans, idx) => (
+                        <div
+                          key={ans.id}
+                          className="pixel-box border-2 border-red-800 bg-red-950/30 p-2"
+                        >
+                          <div className="pixel-font text-[7px] text-red-400 mb-1">
+                            #{idx + 1} - {ans.game_title}
+                          </div>
+                          <div className="pixel-font text-[8px] text-cyan-300 mb-2">
+                            {ans.question_text}
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex gap-2 text-[7px]">
+                              <span className="text-red-400">❌ You:</span>
+                              <span className="text-white bg-red-900/50 px-1 py-0.5 pixel-box border border-red-700">
+                                {ans.wrong_choice}
+                              </span>
+                            </div>
+                            <div className="flex gap-2 text-[7px]">
+                              <span className="text-green-400">✅ Right:</span>
+                              <span className="text-white bg-green-900/50 px-1 py-0.5 pixel-box border border-green-700">
+                                {ans.correct_choice}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => setShowStatsModal(false)}
+                  className="btn-press w-full py-2 bg-purple-800 border-2 border-purple-600 text-purple-300 pixel-font text-[9px] pixel-box hover:bg-purple-700"
+                >
+                  <X size={12} className="inline mr-2" /> CLOSE
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── SHARE MODAL ────────────────────────────────────────────────────── */}
+      {showShareModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div
+            className="pixel-box border-4 border-cyan-500 bg-purple-950 max-w-md w-full overflow-hidden"
+            style={{ boxShadow: "8px 8px 0 rgba(6,182,212,0.5)" }}
+          >
+            <div className="bg-cyan-600 px-4 py-3 flex items-center gap-2">
+              <Share2 size={14} className="text-white" />
+              <span className="pixel-font text-white text-xs">SHARE CODE</span>
+              <button
+                onClick={() => setShowShareModal(false)}
+                className="ml-auto text-white hover:text-gray-200"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="pixel-font text-[8px] text-cyan-400 text-center">
+                SHARE WITH FRIENDS
+              </p>
+              <div>
+                <label className="pixel-font text-[9px] text-cyan-400 block mb-3">
+                  🎮 CODE:
+                </label>
+                <div className="flex gap-2">
+                  <div className="flex-1 px-4 py-3 bg-purple-900/50 border-2 border-purple-600 text-white pixel-font text-lg pixel-box font-bold tracking-widest">
+                    {shareCode}
+                  </div>
                   <button
-                    className="g-btn primary sm"
-                    onClick={() => handleInviteUser(user.id)}
-                    disabled={loading}
+                    onClick={copyCodeToClipboard}
+                    className="btn-press px-4 py-3 bg-cyan-600 border-2 border-cyan-400 text-white pixel-font text-[9px] pixel-box hover:bg-cyan-500 transition-colors flex items-center justify-center"
                   >
-                    INVITE
+                    <Check size={14} />
                   </button>
                 </div>
-              ))}
-              {searchQuery.length >= 2 && searchResults.length === 0 && (
-                <div style={{ textAlign: "center", padding: "20px 0" }}>
-                  <div
-                    className="pf"
-                    style={{ fontSize: 8, color: lm ? "#9ca3af" : "#2d1060" }}
-                  >
-                    NO USERS FOUND
-                  </div>
-                </div>
-              )}
-              {searchQuery.length < 2 && (
-                <div style={{ textAlign: "center", padding: "16px 0" }}>
-                  <div
-                    className="pf"
-                    style={{ fontSize: 7, color: lm ? "#9ca3af" : "#1a0a35" }}
-                  >
-                    TYPE 2+ CHARS TO SEARCH
-                  </div>
-                </div>
-              )}
+              </div>
+              <p className="pixel-font text-[8px] text-cyan-400 text-center">
+                ✅ COPIED!
+              </p>
+              <button
+                onClick={() => setShowShareModal(false)}
+                className="btn-press w-full py-3 bg-purple-800 border-2 border-purple-600 text-purple-300 pixel-font text-[9px] pixel-box hover:bg-purple-700 flex items-center justify-center gap-2"
+              >
+                <X size={12} /> CLOSE
+              </button>
             </div>
+          </div>
+        </div>
+      )}
 
-            <button
-              className="g-btn danger"
-              style={{ width: "100%" }}
-              onClick={() => setShowInvite(false)}
-            >
-              ✕ CLOSE
-            </button>
+      {/* ── JOIN MODAL ─────────────────────────────────────────────────────── */}
+      {showJoinModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div
+            className="pixel-box border-4 border-purple-500 bg-purple-950 max-w-md w-full overflow-hidden"
+            style={{ boxShadow: "8px 8px 0 rgba(139,92,246,0.5)" }}
+          >
+            <div className="bg-purple-700 px-4 py-3 flex items-center gap-2">
+              <Users size={14} className="text-white" />
+              <span className="pixel-font text-white text-xs">JOIN GAME</span>
+              <button
+                onClick={() => setShowJoinModal(false)}
+                className="ml-auto text-white hover:text-gray-200"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="pixel-font text-[8px] text-purple-400 text-center">
+                ENTER GAME CODE
+              </p>
+              <div>
+                <label className="pixel-font text-[9px] text-purple-400 block mb-3">
+                  📥 CODE:
+                </label>
+                <input
+                  type="text"
+                  value={joinInput}
+                  onChange={(e) => setJoinInput(e.target.value.toUpperCase())}
+                  onKeyPress={(e) => {
+                    if (e.key === "Enter") joinGameWithCode();
+                  }}
+                  placeholder="PASTE CODE..."
+                  maxLength={10}
+                  className="w-full px-4 py-3 bg-purple-900/50 border-2 border-purple-600 focus:border-green-400 text-white pixel-font text-sm pixel-box focus:outline-none transition-colors text-center font-bold tracking-widest"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={joinGameWithCode}
+                  disabled={!joinInput.trim()}
+                  className="btn-press flex-1 py-3 bg-green-700 border-2 border-green-500 text-white pixel-font text-[9px] pixel-box hover:bg-green-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  <Play size={12} /> JOIN
+                </button>
+                <button
+                  onClick={() => {
+                    setShowJoinModal(false);
+                    setJoinInput("");
+                  }}
+                  className="btn-press flex-1 py-3 bg-red-800 border-2 border-red-600 text-red-300 pixel-font text-[9px] pixel-box hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <X size={12} /> CANCEL
+                </button>
+              </div>
+              <p className="pixel-font text-[7px] text-purple-600 text-center border-t-2 border-purple-700 pt-3">
+                💡 GET CODE FROM YOUR FRIEND
+              </p>
+            </div>
           </div>
         </div>
       )}
     </div>
   );
-};
-
-export default Groups;
+}

@@ -270,13 +270,9 @@ function HomeContent({
       <div
         className="pixel-box border-2 p-5 relative overflow-hidden"
         style={{
-          background: lightMode
-            ? "#ffffff"
-            : "linear-gradient(135deg,#1e0a40,#0d1a3a)",
-          borderColor: lightMode ? "#e2e8f0" : "#7c3aed",
-          boxShadow: lightMode
-            ? "4px 4px 0 #e2e8f0"
-            : "0 0 24px rgba(124,58,237,0.2), 4px 4px 0 #2d1060",
+          background: "linear-gradient(135deg,#1e0a40,#0d1a3a)",
+          borderColor: "#7c3aed",
+          boxShadow: "0 0 24px rgba(124,58,237,0.2), 4px 4px 0 #2d1060",
         }}
       >
         <div
@@ -289,22 +285,22 @@ function HomeContent({
         />
         <div
           className="pixel-font text-[8px] mb-1"
-          style={{ color: lightMode ? "#9ca3af" : "#ffffff" }}
+          style={{ color: "#ffffff" }}
         >
           {greeting}
         </div>
         <div
           className="pixel-font text-base sm:text-lg"
           style={{
-            color: lightMode ? "#1e0a40" : "#ffffff",
-            textShadow: lightMode ? "none" : "0 0 16px rgba(192,132,252,0.4)",
+            color: "#ffffff",
+            textShadow: "0 0 16px rgba(192,132,252,0.4)",
           }}
         >
           {username.toUpperCase()} ✦
         </div>
         <div
           className="pixel-font text-[8px] mt-2"
-          style={{ color: lightMode ? "#9ca3af" : "#ffffff" }}
+          style={{ color: "#ffffff" }}
         >
           READY TO LEARN TODAY?
         </div>
@@ -338,11 +334,9 @@ function HomeContent({
             onClick={onClick}
             className="pixel-box border-2 p-3 text-center"
             style={{
-              background: lightMode ? "#ffffff" : "#0d0520",
-              borderColor: lightMode ? "#e2e8f0" : "#2d1060",
-              boxShadow: lightMode
-                ? "3px 3px 0 #e2e8f0"
-                : `0 0 8px rgba(0,0,0,0.5), 3px 3px 0 #1a0a35`,
+              background: "#0d0520",
+              borderColor: "#2d1060",
+              boxShadow: `0 0 8px rgba(0,0,0,0.5), 3px 3px 0 #1a0a35`,
               cursor: onClick ? "pointer" : "default",
             }}
           >
@@ -362,7 +356,7 @@ function HomeContent({
             </div>
             <div
               className="pixel-font text-[7px] mt-1"
-              style={{ color: lightMode ? "#9ca3af" : "#ffffff" }}
+              style={{ color: "#ffffff" }}
             >
               {label}
             </div>
@@ -383,7 +377,7 @@ function HomeContent({
       <div>
         <div
           className="pixel-font text-[8px] mb-3 flex items-center gap-2"
-          style={{ color: lightMode ? "#9ca3af" : "#ffffff" }}
+          style={{ color: "#ffffff" }}
         >
           <Star size={10} style={{ color: "#a855f7" }} /> QUICK ACCESS
         </div>
@@ -395,11 +389,9 @@ function HomeContent({
                 onClick={() => onNavigate(key)}
                 className="pixel-box border-2 p-3 text-left transition-all hover:brightness-125 active:translate-y-px group"
                 style={{
-                  background: lightMode ? "#ffffff" : bg,
+                  background: bg,
                   borderColor: border,
-                  boxShadow: lightMode
-                    ? `3px 3px 0 ${border}44`
-                    : "3px 3px 0 rgba(0,0,0,0.5)",
+                  boxShadow: "3px 3px 0 rgba(0,0,0,0.5)",
                 }}
               >
                 {imgSrc ? (
@@ -418,7 +410,7 @@ function HomeContent({
                 </div>
                 <div
                   className="pixel-font text-[7px] mt-1"
-                  style={{ color: lightMode ? "#9ca3af" : "#ffffff" }}
+                  style={{ color: "#ffffff" }}
                 >
                   {desc}
                 </div>
@@ -439,7 +431,7 @@ function HomeContent({
         <div>
           <div
             className="pixel-font text-[8px] mb-3 flex items-center gap-2"
-            style={{ color: lightMode ? "#9ca3af" : "#ffffff" }}
+            style={{ color: "#ffffff" }}
           >
             <Gamepad2 size={10} style={{ color: "#a855f7" }} /> MY RECENT GAMES
           </div>
@@ -449,38 +441,23 @@ function HomeContent({
                 key={game.id}
                 className="pixel-box border-2 px-3 py-2 flex items-center gap-3"
                 style={{
-                  background: lightMode ? "#ffffff" : "#0d0520",
-                  borderColor: lightMode ? "#e2e8f0" : "#2d1060",
+                  background: "#0d0520",
+                  borderColor: "#2d1060",
                 }}
               >
-                <Gamepad2
-                  size={12}
-                  style={{ color: lightMode ? "#7c3aed" : "#7c3aed" }}
-                />
+                <Gamepad2 size={12} style={{ color: "#7c3aed" }} />
                 <span
                   className="pixel-font text-[9px] flex-1 truncate"
-                  style={{ color: lightMode ? "#374151" : "#c4b5fd" }}
+                  style={{ color: "#c4b5fd" }}
                 >
                   {game.title}
                 </span>
                 <span
                   className="pixel-font text-[7px] px-2 py-1 pixel-box border"
                   style={{
-                    color: game.is_multiplayer
-                      ? "#38bdf8"
-                      : lightMode
-                        ? "#374151"
-                        : "#ffffff",
-                    borderColor: game.is_multiplayer
-                      ? "#0e7490"
-                      : lightMode
-                        ? "#e2e8f0"
-                        : "#ffffff",
-                    background: game.is_multiplayer
-                      ? "#0c2a3a"
-                      : lightMode
-                        ? "#f8fafc"
-                        : "#1a0a35",
+                    color: game.is_multiplayer ? "#38bdf8" : "#ffffff",
+                    borderColor: game.is_multiplayer ? "#0e7490" : "#ffffff",
+                    background: game.is_multiplayer ? "#0c2a3a" : "#1a0a35",
                   }}
                 >
                   {game.is_multiplayer ? "MULTI" : "SOLO"}
@@ -491,7 +468,7 @@ function HomeContent({
           <button
             onClick={() => onNavigate("mygames")}
             className="pixel-font text-[8px] mt-2 flex items-center gap-1 hover:brightness-125 transition-colors"
-            style={{ color: lightMode ? "#9ca3af" : "#ffffff" }}
+            style={{ color: "#ffffff" }}
           >
             SEE ALL <ChevronRight size={10} />
           </button>
@@ -502,13 +479,9 @@ function HomeContent({
       <div
         className="pixel-box border-2 p-4 relative overflow-hidden"
         style={{
-          background: lightMode
-            ? "linear-gradient(135deg,#fdf4ff,#eff6ff)"
-            : "linear-gradient(135deg,#1e0a40,#0a1a3a)",
+          background: "linear-gradient(135deg,#1e0a40,#0a1a3a)",
           borderColor: "#a855f7",
-          boxShadow: lightMode
-            ? "4px 4px 0 #e9d5ff"
-            : "0 0 20px rgba(168,85,247,0.2), 4px 4px 0 #2d1060",
+          boxShadow: "0 0 20px rgba(168,85,247,0.2), 4px 4px 0 #2d1060",
         }}
       >
         <div
@@ -523,19 +496,16 @@ function HomeContent({
         </div>
         <div
           className="pixel-font text-[8px] mb-1"
-          style={{ color: lightMode ? "#9ca3af" : "#ffffff" }}
+          style={{ color: "#ffffff" }}
         >
           CURRENT PLAN
         </div>
-        <div
-          className="pixel-font text-sm mb-1"
-          style={{ color: lightMode ? "#1e0a40" : "#e9d5ff" }}
-        >
+        <div className="pixel-font text-sm mb-1" style={{ color: "#e9d5ff" }}>
           FREE PLAN
         </div>
         <div
           className="pixel-font text-[8px] mb-3"
-          style={{ color: lightMode ? "#6b7280" : "#ffffff" }}
+          style={{ color: "#ffffff" }}
         >
           3 games/day · Basic flashcards
         </div>
@@ -556,7 +526,7 @@ function HomeContent({
             onClick={() => onNavigate("subscription")}
             className="btn-press pixel-box border-2 px-3 py-2 pixel-font text-[8px] transition-all hover:brightness-125"
             style={{
-              background: lightMode ? "#ffffff" : "#0d0520",
+              background: "#0d0520",
               borderColor: "#38bdf8",
               color: "#38bdf8",
               boxShadow: "3px 3px 0 #0e7490",
@@ -571,7 +541,7 @@ function HomeContent({
       <div>
         <div
           className="pixel-font text-[8px] mb-3 flex items-center gap-2"
-          style={{ color: lightMode ? "#9ca3af" : "#ffffff" }}
+          style={{ color: "#ffffff" }}
         >
           <Bell size={10} style={{ color: "#f472b6" }} /> ANNOUNCEMENTS
         </div>
@@ -597,8 +567,8 @@ function HomeContent({
               key={text}
               className="pixel-box border-2 px-3 py-2 flex items-start gap-2"
               style={{
-                background: lightMode ? "#ffffff" : "#0d0520",
-                borderColor: lightMode ? "#e2e8f0" : "#2d1060",
+                background: "#0d0520",
+                borderColor: "#2d1060",
               }}
             >
               <img
@@ -1475,17 +1445,8 @@ export default function Dashboard() {
         .collapsed .bar-top { transform: rotate(45deg) translate(3px, 3px); }
         .collapsed .bar-mid { opacity: 0; }
         .collapsed .bar-bot { transform: rotate(-45deg) translate(3px, -3px); }
-        /* Light mode global override */
-        .lm-root { background: #ffffff !important; color: #000000 !important; }
-        .lm-root *:not(.bar-top):not(.bar-mid):not(.bar-bot) { background-color: #ffffff !important; color: #000000 !important; border-color: #d1d5db !important; box-shadow: none !important; text-shadow: none !important; filter: none !important; }
-        .lm-root svg { color: #000000 !important; }
+        /* Light mode: only hide canvas and set scrollbar */
         .lm-root canvas, .lm-root .scan-line { display: none !important; }
-        .lm-root input, .lm-root textarea, .lm-root select { background: #ffffff !important; color: #000000 !important; border: 1px solid #d1d5db !important; }
-        .lm-root input::placeholder, .lm-root textarea::placeholder { color: #9ca3af !important; }
-        .lm-root button { background: #ffffff !important; color: #000000 !important; border-color: #d1d5db !important; }
-        .lm-root button:hover { background: #f3f4f6 !important; }
-        .lm-root .modal-box { box-shadow: 0 4px 24px rgba(0,0,0,0.12) !important; border-color: #d1d5db !important; }
-        .lm-root .toggle-track, .lm-root .toggle-track * { background-color: unset !important; border-color: unset !important; }
         .lm-root *::-webkit-scrollbar { background: #f3f4f6; }
         .lm-root *::-webkit-scrollbar-thumb { background: #d1d5db; }
       `}</style>

@@ -10,7 +10,11 @@ import {
 import { createContext, useContext } from "react";
 const _ThemeCtx = createContext<boolean>(false);
 function useLightMode() {
-  return useContext(_ThemeCtx);
+  try {
+    return localStorage.getItem("tt_light_mode") === "true";
+  } catch {
+    return false;
+  }
 }
 import {
   Users,
@@ -70,19 +74,6 @@ const S = `
   .search-row:focus-within{border-color:#4c1d95}
   .search-row input{background:none;border:none;color:#e9d5ff;font-family:'Press Start 2P',cursive;font-size:9px;outline:none;flex:1;min-width:0}
   .search-row input::placeholder{color:#2d1060;font-size:8px}
-  .lm .stat-card{background:#ffffff;border-color:#e2e8f0;}
-  .lm .stat-card:hover{background:#f8fafc;border-color:#7c3aed;}
-  .lm .info-row{background:#ffffff;border-color:#e2e8f0;}
-  .lm .info-row:hover{border-color:#c4b5fd;}
-  .lm .p-input{background:#ffffff;border-color:#e2e8f0;color:#1e0a40;}
-  .lm .p-input::placeholder{color:#9ca3af;}
-  .lm .p-textarea{background:#ffffff;border-color:#e2e8f0;color:#1e0a40;}
-  .lm .friend-row{background:#ffffff;border-color:#e2e8f0;}
-  .lm .friend-row:hover{border-color:#c4b5fd;}
-  .lm .modal-box{background:#ffffff;border-color:#7c3aed;box-shadow:8px 8px 0 #e2e8f0;}
-  .lm .search-row{background:#ffffff;border-color:#e2e8f0;}
-  .lm .search-row input{color:#1e0a40;}
-  .lm .search-row input::placeholder{color:#9ca3af;}
 `;
 
 export default function Profile() {
@@ -375,7 +366,10 @@ export default function Profile() {
     );
 
   return (
-    <div style={{ width: "100%" }} className={lm ? "lm" : ""}>
+    <div
+      style={{ width: "100%", background: lm ? "#ffffff" : undefined }}
+      className={lm ? "lm" : ""}
+    >
       <style>{S}</style>
       <div
         className="scan-line"

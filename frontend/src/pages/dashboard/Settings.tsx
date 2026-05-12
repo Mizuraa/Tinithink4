@@ -547,7 +547,9 @@ const Settings: React.FC<{
     );
 
   return (
-    <div style={{ width: "100%" }}>
+    <div
+      style={{ width: "100%", background: lightMode ? "#ffffff" : undefined }}
+    >
       <style>{S}</style>
       <div
         className="scan-line"

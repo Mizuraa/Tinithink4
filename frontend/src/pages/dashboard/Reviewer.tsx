@@ -3,7 +3,11 @@ import { supabase } from "../../lib/supabase";
 import { createContext, useContext } from "react";
 const _ThemeCtx = createContext<boolean>(false);
 function useLightMode() {
-  return useContext(_ThemeCtx);
+  try {
+    return localStorage.getItem("tt_light_mode") === "true";
+  } catch {
+    return false;
+  }
 }
 import {
   BookMarked,
@@ -95,11 +99,6 @@ const S = `
   .toast.ok{background:rgba(20,83,45,.95);border-color:#22c55e;color:#86efac}
   .toast.err{background:rgba(127,29,29,.95);border-color:#ef4444;color:#fca5a5}
   .corner-dot{position:absolute;width:5px;height:5px}
-  .lm .term-card{background:#fff!important;border-color:#e2e8f0!important;box-shadow:3px 3px 0 #e2e8f0!important}
-  .lm .r-input{background:#fff!important;border-color:#e2e8f0!important;color:#1e0a40!important}
-  .lm .search-row{background:#fff!important;border-color:#e2e8f0!important}
-  .lm .search-row input{color:#1e0a40!important}
-  .lm .underline-btn{border-color:#e2e8f0!important;color:#374151!important}
   .tag{display:inline-flex;align-items:center;gap:4px;padding:3px 7px;border:1px solid;font-family:'Press Start 2P',cursive;font-size:7px;cursor:pointer;transition:all .15s}
 `;
 
@@ -302,7 +301,7 @@ export function Reviewer() {
     });
 
   return (
-    <div style={{ width: "100%" }}>
+    <div style={{ width: "100%", background: lm ? "#ffffff" : undefined }}>
       <style>{S}</style>
       <div
         className="scan-line"
