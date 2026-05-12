@@ -10,7 +10,6 @@ import {
   Settings,
   LogOut as LogOutIcon,
   Bell,
-  Trophy,
   Star,
   ChevronRight,
   Play,
@@ -68,14 +67,16 @@ type MenuKey =
   | "todo"
   | "logout";
 
-// ── Animated grid background ──────────────────────────────────────────────────
-function DashBg() {
+// ── Animated grid + particle background ───────────────────────────────────────
+function DashBg({ lightMode = false }: { lightMode?: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d")!;
     let raf: number;
+
     function resize() {
       canvas!.width = canvas!.offsetWidth;
       canvas!.height = canvas!.offsetHeight;
@@ -83,80 +84,154 @@ function DashBg() {
     resize();
     window.addEventListener("resize", resize);
 
-    const COLS = [
+    // Neon palette — dark mode vivid, light mode pastel
+    const DARK_COLS = [
       "#7c3aed",
       "#a855f7",
+      "#6366f1",
       "#38bdf8",
+      "#22d3ee",
       "#f472b6",
       "#4ade80",
       "#facc15",
+      "#fb923c",
     ];
-    type Dot = {
+    const LIGHT_COLS = [
+      "#c4b5fd",
+      "#d8b4fe",
+      "#a5b4fc",
+      "#bae6fd",
+      "#99f6e4",
+      "#fbcfe8",
+      "#bbf7d0",
+      "#fef08a",
+      "#fed7aa",
+    ];
+
+    // Two layers of particles matching the reference:
+    //  • ~120 tiny 1×1 px "star" dots — very dim, slow twinkle
+    //  • ~35  2×2 px "glow" dots     — brighter, slightly faster twinkle
+    type Particle = {
       x: number;
       y: number;
       phase: number;
       speed: number;
       color: string;
-      size: number;
+      size: 1 | 2;
+      minA: number;
+      maxA: number;
     };
-    const dots: Dot[] = Array.from({ length: 60 }, () => ({
-      x: Math.random() * (canvas?.offsetWidth || 1200),
-      y: Math.random() * (canvas?.offsetHeight || 800),
-      phase: Math.random() * Math.PI * 2,
-      speed: 0.008 + Math.random() * 0.015,
-      color: COLS[Math.floor(Math.random() * COLS.length)],
-      size: Math.random() < 0.6 ? 2 : 3,
-    }));
 
-    let t = 0;
+    function makeParticles(lm: boolean): Particle[] {
+      const COLS = lm ? LIGHT_COLS : DARK_COLS;
+      const w = canvas!.offsetWidth || 390;
+      const h = canvas!.offsetHeight || 844;
+      const particles: Particle[] = [];
+
+      // tiny dim stars
+      for (let i = 0; i < 130; i++) {
+        particles.push({
+          x: Math.random() * w,
+          y: Math.random() * h,
+          phase: Math.random() * Math.PI * 2,
+          speed: 0.004 + Math.random() * 0.008, // very slow twinkle
+          color: COLS[Math.floor(Math.random() * COLS.length)],
+          size: 1,
+          minA: lm ? 0.08 : 0.04,
+          maxA: lm ? 0.4 : 0.28,
+        });
+      }
+      // medium glow dots
+      for (let i = 0; i < 40; i++) {
+        particles.push({
+          x: Math.random() * w,
+          y: Math.random() * h,
+          phase: Math.random() * Math.PI * 2,
+          speed: 0.006 + Math.random() * 0.012,
+          color: COLS[Math.floor(Math.random() * COLS.length)],
+          size: 2,
+          minA: lm ? 0.18 : 0.1,
+          maxA: lm ? 0.7 : 0.55,
+        });
+      }
+      return particles;
+    }
+
+    const particles = makeParticles(lightMode);
+
     function draw() {
       const w = canvas!.width,
         h = canvas!.height;
       ctx.clearRect(0, 0, w, h);
-      const bg = ctx.createLinearGradient(0, 0, w, h);
-      bg.addColorStop(0, "#0d0520");
-      bg.addColorStop(0.5, "#0a0f28");
-      bg.addColorStop(1, "#080318");
-      ctx.fillStyle = bg;
-      ctx.fillRect(0, 0, w, h);
 
-      ctx.globalAlpha = 0.03;
-      ctx.strokeStyle = "#6d28d9";
+      // ── Background gradient ──
+      if (lightMode) {
+        const bg = ctx.createLinearGradient(0, 0, w, h);
+        bg.addColorStop(0, "#faf5ff");
+        bg.addColorStop(0.5, "#f0f9ff");
+        bg.addColorStop(1, "#fff1f2");
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, w, h);
+      } else {
+        const bg = ctx.createLinearGradient(0, 0, w, h);
+        bg.addColorStop(0, "#0d0520");
+        bg.addColorStop(0.5, "#090d24");
+        bg.addColorStop(1, "#080318");
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, w, h);
+      }
+
+      // ── Grid lines (very faint, matching reference) ──
+      ctx.save();
+      ctx.globalAlpha = lightMode ? 0.05 : 0.028;
+      ctx.strokeStyle = lightMode ? "#a855f7" : "#5b21b6";
       ctx.lineWidth = 1;
-      for (let x = 0; x < w; x += 36) {
+      const GRID = 36;
+      for (let x = 0; x < w; x += GRID) {
         ctx.beginPath();
         ctx.moveTo(x, 0);
         ctx.lineTo(x, h);
         ctx.stroke();
       }
-      for (let y = 0; y < h; y += 36) {
+      for (let y = 0; y < h; y += GRID) {
         ctx.beginPath();
         ctx.moveTo(0, y);
         ctx.lineTo(w, y);
         ctx.stroke();
       }
-      ctx.globalAlpha = 1;
+      ctx.restore();
 
-      t += 0.012;
-      dots.forEach((d) => {
-        d.phase += d.speed;
-        const a = 0.15 + 0.5 * Math.abs(Math.sin(d.phase));
-        ctx.globalAlpha = a;
-        ctx.fillStyle = d.color;
-        ctx.shadowColor = d.color;
-        ctx.shadowBlur = d.size * 2;
-        ctx.fillRect(d.x, d.y, d.size, d.size);
-        ctx.shadowBlur = 0;
-        ctx.globalAlpha = 1;
+      // ── Particles ──
+      particles.forEach((p) => {
+        p.phase += p.speed;
+        const t = Math.abs(Math.sin(p.phase));
+        const alpha = p.minA + (p.maxA - p.minA) * t;
+
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = p.color;
+
+        if (p.size === 2) {
+          // glow halo for the bigger dots
+          ctx.shadowColor = p.color;
+          ctx.shadowBlur = lightMode ? 6 : 4;
+        }
+
+        // Pixel-art square dot
+        ctx.fillRect(p.x, p.y, p.size, p.size);
+        ctx.restore();
       });
+
       raf = requestAnimationFrame(draw);
     }
+
     draw();
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", resize);
     };
-  }, []);
+  }, [lightMode]);
+
   return (
     <canvas
       ref={canvasRef}
@@ -176,11 +251,9 @@ function DashBg() {
 function HomeContent({
   username,
   onNavigate,
-  lightMode = false,
 }: {
   username: string;
   onNavigate: (k: MenuKey) => void;
-  lightMode?: boolean;
 }) {
   const [gameCount, setGameCount] = useState<number | null>(null);
   const [recentGames, setRecentGames] = useState<any[]>([]);
@@ -1370,13 +1443,7 @@ export default function Dashboard() {
   function renderContent() {
     switch (active) {
       case "home":
-        return (
-          <HomeContent
-            username={username}
-            onNavigate={navigate}
-            lightMode={lightMode}
-          />
-        );
+        return <HomeContent username={username} onNavigate={navigate} />;
       case "folder":
         return <FolderPage />;
       case "flashcard":
@@ -1415,7 +1482,7 @@ export default function Dashboard() {
     <div
       className={`min-h-screen flex flex-col relative overflow-hidden${lightMode ? " lm-root" : ""}`}
       style={{
-        background: lightMode ? "#ffffff" : undefined,
+        background: lightMode ? "transparent" : undefined,
         color: lightMode ? "#1e0a40" : "white",
       }}
     >
@@ -1446,29 +1513,12 @@ export default function Dashboard() {
         .collapsed .bar-mid { opacity: 0; }
         .collapsed .bar-bot { transform: rotate(-45deg) translate(3px, -3px); }
         /* Light mode: only hide canvas and set scrollbar */
-        .lm-root canvas, .lm-root .scan-line { display: none !important; }
+        .lm-root .scan-line { display: none !important; }
         .lm-root *::-webkit-scrollbar { background: #f3f4f6; }
         .lm-root *::-webkit-scrollbar-thumb { background: #d1d5db; }
       `}</style>
 
-      <DashBg />
-      {lightMode && (
-        <>
-          <div
-            style={{
-              position: "fixed",
-              inset: 0,
-              background: "#ffffff",
-              zIndex: 0,
-              pointerEvents: "none",
-            }}
-          />
-          <style>{`
-            #hamburger-mobile, #hamburger-desktop { background-color: #000000 !important; border-color: #000000 !important; }
-            #hamburger-mobile *, #hamburger-desktop * { background-color: #ffffff !important; }
-          `}</style>
-        </>
-      )}
+      <DashBg lightMode={lightMode} />
 
       {/* ── TOP BAR ── */}
       <header
@@ -1880,7 +1930,7 @@ export default function Dashboard() {
         {/* ── MAIN CONTENT ── */}
         <main
           className="flex-1 min-w-0 overflow-y-auto hide-scroll"
-          style={{ background: lightMode ? "#ffffff" : undefined }}
+          style={{ background: lightMode ? "transparent" : undefined }}
         >
           <div className="w-full px-6 py-5">
             {/* Page header */}

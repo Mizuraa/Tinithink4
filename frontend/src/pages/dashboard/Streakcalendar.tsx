@@ -1,1196 +1,661 @@
-import { useState, useEffect, useRef } from "react";
-import {
-  supabase,
-  getCurrentUser,
-  getFriends,
-  getPendingFriendRequests,
-  acceptFriendRequest,
-  rejectFriendRequest,
-} from "../../lib/supabase";
-import { createContext, useContext } from "react";
-const _ThemeCtx = createContext<boolean>(false);
-function useLightMode() {
-  try {
-    return localStorage.getItem("tt_light_mode") === "true";
-  } catch {
-    return false;
-  }
-}
-import {
-  Users,
-  Clock,
-  Check,
-  X,
-  Camera,
-  Wifi,
-  WifiOff,
-  Edit2,
-  Save,
-  UserPlus,
-  Search,
-  UserMinus,
-} from "lucide-react";
+import { useState, useEffect } from "react";
+import { supabase, getCurrentUser } from "../../lib/supabase";
+import { Flame, Gift, Check, Lock, Trophy, Star, Zap } from "lucide-react";
+import { AVATAR_IMAGES } from "../../../public/AvatarImages";
 
-const S = `
+// ─── TYPES & HELPERS ──────────────────────────────────────────────────────────
+type Reward = {
+  type: "heart" | "key" | "shield" | "coins";
+  amount: number;
+  label: string;
+  emoji: string;
+};
+
+type AvatarCfg = {
+  gender: "female" | "male";
+  char: "1" | "2" | "3" | "4";
+  color:
+    | "purple"
+    | "sky"
+    | "pink"
+    | "red"
+    | "mint"
+    | "gold"
+    | "white"
+    | "black";
+};
+
+const DEFAULT_AVATAR: AvatarCfg = {
+  gender: "female",
+  char: "1",
+  color: "purple",
+};
+
+function getAvatarSrc(cfg: AvatarCfg, mood: "happy" | "sad" = "happy"): string {
+  const charData = (AVATAR_IMAGES as any)[cfg.gender]?.[cfg.char];
+  if (!charData) return "";
+  const moodData =
+    charData[mood] ?? charData[mood === "happy" ? "sad" : "happy"] ?? {};
+  return moodData[cfg.color] ?? charData.base ?? "";
+}
+
+function AvatarImage({ cfg, size = 120 }: { cfg: AvatarCfg; size?: number }) {
+  const src = getAvatarSrc(cfg);
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      {src ? (
+        <img
+          src={src}
+          alt="avatar"
+          style={{
+            width: "100%",
+            height: "100%",
+            imageRendering: "pixelated",
+            objectFit: "contain",
+          }}
+        />
+      ) : (
+        <div
+          style={{
+            width: size,
+            height: size,
+            background: "rgba(76,29,149,.2)",
+            border: "2px solid #4c1d95",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 32,
+          }}
+        >
+          👤
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── DATA ────────────────────────────────────────────────────────────────────
+const MILESTONES: { day: number; reward: Reward }[] = [
+  {
+    day: 3,
+    reward: { type: "coins", amount: 30, label: "+30 COINS", emoji: "🪙" },
+  },
+  {
+    day: 7,
+    reward: { type: "key", amount: 1, label: "PIXEL KEY", emoji: "🔑" },
+  },
+  {
+    day: 14,
+    reward: { type: "coins", amount: 75, label: "+75 COINS", emoji: "🪙" },
+  },
+  {
+    day: 21,
+    reward: { type: "shield", amount: 1, label: "SHIELD", emoji: "🛡️" },
+  },
+  {
+    day: 30,
+    reward: { type: "heart", amount: 1, label: "GOLD HEART", emoji: "❤️" },
+  },
+];
+
+const BADGES = [
+  { emoji: "🔥", label: "ON FIRE", desc: "3-day streak", unlockAt: 3 },
+  { emoji: "⚡", label: "ELECTRIC", desc: "7-day streak", unlockAt: 7 },
+  { emoji: "🌟", label: "STAR PUPIL", desc: "14-day streak", unlockAt: 14 },
+  { emoji: "🏆", label: "CHAMPION", desc: "21-day streak", unlockAt: 21 },
+  { emoji: "👑", label: "ROYALTY", desc: "30-day streak", unlockAt: 30 },
+];
+
+const TOTAL_DAYS = 30;
+
+const CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
-  .pf{font-family:'Press Start 2P',cursive;}
-  @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-  @keyframes popIn{0%{opacity:0;transform:scale(0.88)}60%{transform:scale(1.03)}100%{opacity:1;transform:scale(1)}}
-  @keyframes avatarGlow{0%,100%{box-shadow:0 0 12px rgba(168,85,247,.5)}50%{box-shadow:0 0 24px rgba(168,85,247,.8)}}
-  @keyframes scanMove{from{top:-10%}to{top:110%}}
-  @keyframes spin{to{transform:rotate(360deg)}}
-  @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-4px)}60%{transform:translateX(4px)}}
-  .fade-up{animation:fadeUp .35s ease both}
-  .pop-in{animation:popIn .3s cubic-bezier(.34,1.56,.64,1) both}
-  .scan-line{animation:scanMove 8s linear infinite}
-  .av-glow{animation:avatarGlow 3s ease-in-out infinite}
-  .shk{animation:shake .35s ease}
-  .stat-card{background:rgba(8,3,24,.7);border:2px solid #1a0a35;padding:16px;display:flex;flex-direction:column;align-items:center;cursor:pointer;transition:border-color .2s,transform .15s,background .2s;position:relative}
-  .stat-card:hover{border-color:#7c3aed;background:rgba(124,58,237,.08);transform:translateY(-2px)}
-  .info-row{padding:11px 14px;border:1px solid #1a0a35;background:rgba(8,3,24,.5);transition:border-color .2s}
-  .info-row:hover{border-color:#2d1060}
-  .p-input{background:rgba(8,3,24,.9);border:2px solid #2d1060;color:#e9d5ff;padding:9px 12px;font-family:'Press Start 2P',cursive;font-size:9px;outline:none;width:100%;box-sizing:border-box;transition:border-color .2s}
-  .p-input:focus{border-color:#a855f7;box-shadow:0 0 6px rgba(168,85,247,.2)}
-  .p-input::placeholder{color:#2d1060;font-size:8px}
-  .p-textarea{background:rgba(8,3,24,.9);border:2px solid #2d1060;color:#e9d5ff;padding:9px 12px;font-family:'Press Start 2P',cursive;font-size:9px;outline:none;width:100%;box-sizing:border-box;resize:none;transition:border-color .2s;line-height:1.8}
-  .p-textarea:focus{border-color:#a855f7}
-  .p-btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 14px;cursor:pointer;font-family:'Press Start 2P',cursive;font-size:9px;border:2px solid;transition:filter .15s,transform .08s}
-  .p-btn:hover{filter:brightness(1.15)}.p-btn:active{transform:translateY(1px)}.p-btn:disabled{opacity:.4;cursor:not-allowed}
-  .p-btn.cyan{background:rgba(14,116,144,.4);border-color:#22d3ee;color:#67e8f9}
-  .p-btn.green{background:rgba(20,83,45,.5);border-color:#22c55e;color:#4ade80}
-  .p-btn.red{background:rgba(127,29,29,.5);border-color:#ef4444;color:#f87171}
-  .p-btn.purple{background:rgba(124,58,237,.3);border-color:#7c3aed;color:#c084fc}
-  .p-btn.ghost{background:rgba(45,16,96,.3);border-color:#2d1060;color:#6b21a8}
-  .p-btn.sm{padding:6px 10px;font-size:8px}
-  .friend-row{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid #1a0a35;background:rgba(8,3,24,.4);transition:border-color .15s}
-  .friend-row:hover{border-color:#2d1060}
-  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:40;display:flex;align-items:center;justify-content:center;padding:16px}
-  .modal-box{background:rgba(8,3,24,.97);border:3px solid #7c3aed;padding:24px;max-width:380px;width:100%;box-shadow:0 0 30px rgba(124,58,237,.3),8px 8px 0 #1e0a40;max-height:80vh;overflow-y:auto;position:relative}
-  .corner-dot{position:absolute;width:6px;height:6px}
-  .toast{position:fixed;bottom:24px;right:24px;z-index:999;padding:10px 16px;border:2px solid;font-family:'Press Start 2P',cursive;font-size:8px;animation:popIn .3s ease both;box-shadow:4px 4px 0 rgba(0,0,0,.4)}
-  .toast.ok{background:rgba(20,83,45,.95);border-color:#22c55e;color:#86efac}
-  .toast.err{background:rgba(127,29,29,.95);border-color:#ef4444;color:#fca5a5}
-  .search-row{display:flex;align-items:center;gap:8px;padding:8px 12px;border:2px solid #1a0a35;background:rgba(8,3,24,.7);margin-bottom:12px;transition:border-color .2s}
-  .search-row:focus-within{border-color:#4c1d95}
-  .search-row input{background:none;border:none;color:#e9d5ff;font-family:'Press Start 2P',cursive;font-size:9px;outline:none;flex:1;min-width:0}
-  .search-row input::placeholder{color:#2d1060;font-size:8px}
+  .sc-font { font-family: 'Press Start 2P', cursive; }
+
+  @keyframes scFlame   { 0%,100%{transform:scaleY(1) rotate(-2deg)} 50%{transform:scaleY(1.15) rotate(2deg)} }
+  @keyframes scPop     { 0%{transform:scale(0.7)} 60%{transform:scale(1.15)} 100%{transform:scale(1)} }
+  @keyframes scBounce  { 0%,100%{transform:translateY(0)} 40%{transform:translateY(-5px)} }
+  @keyframes scBadgePop{ 0%{transform:scale(0.5);opacity:0} 70%{transform:scale(1.2)} 100%{transform:scale(1);opacity:1} }
+  @keyframes scShine   { 0%,100%{box-shadow:0 0 6px rgba(250,204,21,.3)} 50%{box-shadow:0 0 20px rgba(250,204,21,.8)} }
+
+  .sc-flame  { animation: scFlame  1.4s ease-in-out infinite; display:inline-block; }
+  .sc-pop    { animation: scPop    .35s cubic-bezier(.34,1.56,.64,1) both; }
+  .sc-bounce { animation: scBounce 1.8s ease-in-out infinite; }
+  .sc-shine  { animation: scShine  2s ease-in-out infinite; }
+
+  .sc-day {
+    aspect-ratio: 1 / 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #1a0a35;
+    gap: 2px;
+    padding: 2px;
+    transition: all .15s;
+    min-width: 0;
+  }
+  .sc-day:hover { transform: scale(1.05); z-index: 2; border-color: #7c3aed; }
+  .sc-day.done      { background: linear-gradient(135deg,#14532d,#052e16); border-color:#22c55e; }
+  .sc-day.today     { border-color:#facc15 !important; background:linear-gradient(135deg,#3a1a00,#1c0d00); }
+  .sc-day.milestone { border-color:#f97316; }
+  .sc-day.future    { background:rgba(8,3,24,.6); border-color:#1a0a35; }
+
+  .sc-claim-btn {
+    font-family:'Press Start 2P',cursive; font-size:8px;
+    padding:10px; cursor:pointer;
+    border:2px solid #f97316; background:rgba(194,65,12,.2); color:#fb923c;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .sc-claim-btn:disabled { opacity:.4; cursor:not-allowed; }
+
+  .sc-badge {
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:6px; padding:10px 4px; border:2px solid; flex:1; min-width:0;
+  }
+  .sc-badge.locked   { border-color:#1a0a35; background:rgba(8,3,24,.5); opacity:.4; }
+  .sc-badge.unlocked { border-color:#f97316; background:rgba(194,65,12,.1); animation:scBadgePop .5s both; }
+  .sc-badge.mastered { border-color:#22c55e; background:rgba(20,83,45,.2); animation:scBadgePop .5s both; }
 `;
 
-export default function Profile() {
-  const lm = useLightMode();
-  const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
-  const [age, setAge] = useState("");
-  const [school, setSchool] = useState("");
-  const [bio, setBio] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState("");
-  const [userId, setUserId] = useState("");
-  const [friends, setFriends] = useState<any[]>([]);
-  const [friendRequests, setFriendRequests] = useState<any[]>([]);
-  const [showFriends, setShowFriends] = useState(false);
-  const [showRequests, setShowRequests] = useState(false);
-  const [showAddFriend, setShowAddFriend] = useState(false);
+export async function updateStreakOnLogin(userId: string) {
+  const today = new Date().toISOString().split("T")[0];
+  const { data } = await supabase
+    .from("users")
+    .select("streak_days,last_play_date")
+    .eq("id", userId)
+    .single();
+  if (!data) return;
+  const last = data.last_play_date;
+  if (last === today) return;
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yStr = yesterday.toISOString().split("T")[0];
+  const newStreak = last === yStr ? (data.streak_days || 0) + 1 : 1;
+  await supabase
+    .from("users")
+    .update({ streak_days: newStreak, last_play_date: today })
+    .eq("id", userId);
+}
+
+// ─── COMPONENT ────────────────────────────────────────────────────────────────
+export default function StreakCalendar({
+  compact = false,
+}: {
+  compact?: boolean;
+}) {
+  const lm = (() => {
+    try {
+      return localStorage.getItem("tt_light_mode") === "true";
+    } catch {
+      return false;
+    }
+  })();
+
+  const [streakDays, setStreakDays] = useState(0);
+  const [claimedDays, setClaimedDays] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [editing, setEditing] = useState(false);
-  // editable copies
-  const [eName, setEName] = useState("");
-  const [eAge, setEAge] = useState("");
-  const [eSchool, setESchool] = useState("");
-  const [eBio, setEBio] = useState("");
-  // add friend
-  const [friendSearch, setFriendSearch] = useState("");
-  const [friendResults, setFriendResults] = useState<any[]>([]);
-  const [sendingInvite, setSendingInvite] = useState<string | null>(null);
-  const [toast, setToast] = useState<{
-    msg: string;
-    type: "ok" | "err";
-  } | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [claiming, setClaiming] = useState(false);
+  const [rewardPopup, setRewardPopup] = useState<Reward | null>(null);
+  const [avatarCfg, setAvatarCfg] = useState<AvatarCfg>(DEFAULT_AVATAR);
 
   useEffect(() => {
-    loadProfile();
-  }, []);
-  const toast$ = (msg: string, type: "ok" | "err") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 2500);
-  };
-
-  async function loadProfile() {
-    try {
-      const user = await getCurrentUser();
-      if (!user) return;
-      setUserId(user.id);
-      const { data: p } = await supabase
-        .from("users")
-        .select("username,email,age,school,bio,avatar_url")
-        .eq("id", user.id)
-        .single();
-      if (p) {
-        setUsername(p.username || "");
-        setEmail(p.email || "");
-        setAge(p.age != null ? p.age.toString() : "");
-        setSchool(p.school || "");
-        setBio(p.bio || "");
-        setAvatarUrl(p.avatar_url || "");
+    async function load() {
+      try {
+        const user = await getCurrentUser();
+        if (!user) return;
+        setUserId(user.id);
+        const { data } = await supabase
+          .from("users")
+          .select("streak_days,claimed_streak_days")
+          .eq("id", user.id)
+          .single();
+        if (data) {
+          setStreakDays(data.streak_days || 0);
+          setClaimedDays(data.claimed_streak_days || []);
+        }
+        const stored = localStorage.getItem("tini_avatar");
+        if (stored) setAvatarCfg(JSON.parse(stored));
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
       }
-      const [fd, rd] = await Promise.all([
-        getFriends(user.id),
-        getPendingFriendRequests(user.id),
-      ]);
-      setFriends(fd || []);
-      setFriendRequests(rd || []);
+    }
+    load();
+  }, []);
+
+  async function handleClaim(milestone: { day: number; reward: Reward }) {
+    if (!userId || claiming) return;
+    setClaiming(true);
+    try {
+      const { data: userData } = await supabase
+        .from("users")
+        .select("coins,claimed_streak_days")
+        .eq("id", userId)
+        .single();
+      if (!userData) throw new Error("User not found");
+      const already = userData.claimed_streak_days || [];
+      const updates: any = { claimed_streak_days: [...already, milestone.day] };
+
+      if (milestone.reward.type === "coins")
+        updates.coins = (userData.coins || 0) + milestone.reward.amount;
+      if (milestone.reward.type === "heart") updates.bonus_hearts = 1;
+
+      await supabase.from("users").update(updates).eq("id", userId);
+      setClaimedDays((prev) => [...prev, milestone.day]);
+      setRewardPopup(milestone.reward);
     } catch (e) {
       console.error(e);
     } finally {
-      setLoading(false);
+      setClaiming(false);
     }
   }
 
-  function startEdit() {
-    setEName(username);
-    setEAge(age);
-    setESchool(school);
-    setEBio(bio);
-    setEditing(true);
-  }
+  const claimableMilestones = MILESTONES.filter(
+    (m) => streakDays >= m.day && !claimedDays.includes(m.day),
+  );
 
-  async function saveProfile() {
-    if (!eName.trim()) {
-      toast$("USERNAME REQUIRED", "err");
-      return;
-    }
-    const parsedAge = eAge ? parseInt(eAge, 10) : null;
-    if (eAge && isNaN(parsedAge!)) {
-      toast$("INVALID AGE", "err");
-      return;
-    }
-    setSaving(true);
-    try {
-      const { error } = await supabase
-        .from("users")
-        .update({
-          username: eName.trim(),
-          age: parsedAge,
-          school: eSchool.trim() || null,
-          bio: eBio.trim() || null,
-        })
-        .eq("id", userId);
-      if (error) throw error;
-      setUsername(eName.trim());
-      setAge(eAge);
-      setSchool(eSchool.trim());
-      setBio(eBio.trim());
-      setEditing(false);
-      toast$("PROFILE SAVED!", "ok");
-    } catch {
-      toast$("SAVE FAILED", "err");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    if (!e.target.files?.length) return;
-    const file = e.target.files[0];
-
-    // Validate type and size
-    const validTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
-    if (!validTypes.includes(file.type)) {
-      toast$("USE JPG, PNG, GIF OR WEBP", "err");
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      toast$("FILE TOO LARGE (MAX 5MB)", "err");
-      return;
-    }
-
-    setUploading(true);
-    try {
-      // Always get uid fresh from session — never rely on state being set
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        toast$("NOT LOGGED IN", "err");
-        return;
-      }
-
-      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-      // Use same flat path format as original: userId-timestamp.ext
-      const fileName = `${user.id}-${Date.now()}.${ext}`;
-
-      const { error: upErr } = await supabase.storage
-        .from("avatars")
-        .upload(fileName, file, { upsert: true, contentType: file.type });
-
-      if (upErr) {
-        console.error("Upload error:", upErr);
-        toast$(`UPLOAD FAILED: ${upErr.message.slice(0, 40)}`, "err");
-        return;
-      }
-
-      const { data } = supabase.storage.from("avatars").getPublicUrl(fileName);
-      const publicUrl = `${data.publicUrl}?t=${Date.now()}`;
-
-      const { error: dbErr } = await supabase
-        .from("users")
-        .update({ avatar_url: data.publicUrl })
-        .eq("id", user.id);
-
-      if (dbErr) {
-        console.error("DB error:", dbErr);
-        toast$("SAVE FAILED", "err");
-        return;
-      }
-
-      setAvatarUrl(publicUrl);
-      toast$("AVATAR UPDATED!", "ok");
-    } catch (err: any) {
-      console.error("Avatar error:", err);
-      toast$(err?.message ? err.message.slice(0, 40) : "UPLOAD FAILED", "err");
-    } finally {
-      setUploading(false);
-      e.target.value = "";
-    }
-  }
-
-  async function searchFriends(q: string) {
-    setFriendSearch(q);
-    if (q.length < 2) {
-      setFriendResults([]);
-      return;
-    }
-    const { data } = await supabase
-      .from("users")
-      .select("id,username,avatar_url")
-      .ilike("username", `%${q}%`)
-      .neq("id", userId)
-      .limit(8);
-    const existingIds = new Set(
-      friends.map((f: any) => f.friend_id ?? f.friend?.id),
+  if (compact)
+    return (
+      <div
+        style={{
+          padding: 16,
+          background: "rgba(8,3,24,.9)",
+          border: "2px solid #2d1060",
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+          minWidth: 220,
+        }}
+      >
+        <style>{CSS}</style>
+        <div className="sc-font" style={{ fontSize: 10, color: "#facc15" }}>
+          {streakDays} DAY STREAK
+        </div>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <Gift size={14} color="#fb923c" />
+          <span className="sc-font" style={{ fontSize: 8, color: "#fb923c" }}>
+            {claimableMilestones.length} READY
+          </span>
+        </div>
+      </div>
     );
-    setFriendResults((data || []).filter((u: any) => !existingIds.has(u.id)));
-  }
-
-  async function sendFriendRequest(targetId: string) {
-    setSendingInvite(targetId);
-    try {
-      const { error } = await supabase
-        .from("friend_requests")
-        .insert({ sender_id: userId, receiver_id: targetId });
-      if (error) throw error;
-      toast$("REQUEST SENT!", "ok");
-      setFriendResults((prev) => prev.filter((u) => u.id !== targetId));
-    } catch {
-      toast$("REQUEST FAILED", "err");
-    } finally {
-      setSendingInvite(null);
-    }
-  }
-
-  async function removeFriend(friendId: string) {
-    try {
-      await supabase
-        .from("friends")
-        .delete()
-        .or(
-          `and(user_id.eq.${userId},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${userId})`,
-        );
-      const [fd] = await Promise.all([getFriends(userId)]);
-      setFriends(fd || []);
-      toast$("FRIEND REMOVED", "ok");
-    } catch {
-      toast$("REMOVE FAILED", "err");
-    }
-  }
-
-  async function handleAcceptRequest(id: string) {
-    try {
-      await acceptFriendRequest(id);
-      const [fd, rd] = await Promise.all([
-        getFriends(userId),
-        getPendingFriendRequests(userId),
-      ]);
-      setFriends(fd || []);
-      setFriendRequests(rd || []);
-      toast$("ACCEPTED!", "ok");
-    } catch {
-      toast$("FAILED", "err");
-    }
-  }
-
-  async function handleRejectRequest(id: string) {
-    try {
-      await rejectFriendRequest(id);
-      const [fd, rd] = await Promise.all([
-        getFriends(userId),
-        getPendingFriendRequests(userId),
-      ]);
-      setFriends(fd || []);
-      setFriendRequests(rd || []);
-      toast$("REJECTED", "ok");
-    } catch {
-      toast$("FAILED", "err");
-    }
-  }
 
   if (loading)
     return (
       <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: 48,
-        }}
+        className="sc-font"
+        style={{ color: "#4c1d95", textAlign: "center", padding: 50 }}
       >
-        <style>{S}</style>
-        <div style={{ textAlign: "center" }}>
-          <div
-            style={{
-              width: 24,
-              height: 24,
-              border: "3px solid #7c3aed",
-              borderTopColor: "transparent",
-              margin: "0 auto 12px",
-              animation: "spin 1s linear infinite",
-            }}
-          />
-          <div className="pf" style={{ fontSize: 8, color: "#4c1d95" }}>
-            LOADING...
-          </div>
-        </div>
+        LOADING...
       </div>
     );
 
   return (
     <div
-      style={{ width: "100%", background: lm ? "#ffffff" : undefined }}
-      className={lm ? "lm" : ""}
+      style={{
+        minHeight: "100vh",
+        background: lm ? "#ffffff" : "#050110",
+        color: "#fff",
+        padding: "20px",
+        boxSizing: "border-box",
+      }}
     >
-      <style>{S}</style>
-      <div
-        className="scan-line"
-        style={{
-          position: "fixed",
-          left: 0,
-          width: "100%",
-          height: 12,
-          background:
-            "linear-gradient(transparent,rgba(168,85,247,.03),transparent)",
-          zIndex: 1,
-          pointerEvents: "none",
-          display: lm ? "none" : undefined,
-        }}
-      />
-      {toast && (
-        <div className={`toast ${toast.type}`}>
-          {toast.type === "ok" ? "✓ " : "⚠ "}
-          {toast.msg}
-        </div>
-      )}
+      <style>{CSS}</style>
 
-      {/* Avatar hero */}
+      {/* HEADER */}
       <div
-        className="fade-up"
         style={{
-          background: lm ? "#ffffff" : "rgba(8,3,24,.88)",
-          border: `2px solid ${lm ? "#e2e8f0" : "#2d1060"}`,
-          padding: "28px 20px",
-          marginBottom: 14,
-          textAlign: "center",
-          position: "relative",
-          boxShadow: lm ? "5px 5px 0 #e2e8f0" : "5px 5px 0 #0a0018",
+          display: "flex",
+          alignItems: "center",
+          gap: "20px",
+          flexWrap: "wrap",
+          padding: "20px",
+          background: "rgba(8,3,24,.9)",
+          border: "2px solid #2d1060",
+          marginBottom: "20px",
         }}
       >
-        <div
-          className="corner-dot"
-          style={{ top: 0, left: 0, background: "#a855f7" }}
-        />
-        <div
-          className="corner-dot"
-          style={{ top: 0, right: 0, background: "#38bdf8" }}
-        />
-        <div
-          className="corner-dot"
-          style={{ bottom: 0, left: 0, background: "#f472b6" }}
-        />
-        <div
-          className="corner-dot"
-          style={{ bottom: 0, right: 0, background: "#a855f7" }}
-        />
-
-        {/* Edit toggle */}
-        <div style={{ position: "absolute", top: 12, right: 12 }}>
-          {editing ? (
-            <div style={{ display: "flex", gap: 6 }}>
-              <button
-                className="p-btn green sm"
-                onClick={saveProfile}
-                disabled={saving}
-              >
-                {saving ? (
-                  <div
-                    style={{
-                      width: 8,
-                      height: 8,
-                      border: "2px solid #fff",
-                      borderTopColor: "transparent",
-                      animation: "spin 1s linear infinite",
-                    }}
-                  />
-                ) : (
-                  <>
-                    <Save size={9} />
-                    SAVE
-                  </>
-                )}
-              </button>
-              <button
-                className="p-btn ghost sm"
-                onClick={() => setEditing(false)}
-              >
-                <X size={9} />
-                CANCEL
-              </button>
-            </div>
-          ) : (
-            <button className="p-btn cyan sm" onClick={startEdit}>
-              <Edit2 size={9} />
-              EDIT
-            </button>
-          )}
-        </div>
-
-        <div
-          style={{
-            position: "relative",
-            display: "inline-block",
-            marginBottom: 14,
-          }}
-        >
-          {avatarUrl ? (
-            <img
-              src={avatarUrl}
-              alt=""
-              className="av-glow"
-              style={{
-                width: 96,
-                height: 96,
-                objectFit: "cover",
-                border: "3px solid #7c3aed",
-                display: "block",
-              }}
-            />
-          ) : (
-            <div
-              className="av-glow"
-              style={{
-                width: 96,
-                height: 96,
-                background: lm ? "#ede9fe" : "rgba(45,16,96,.6)",
-                border: "3px solid #7c3aed",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Users size={40} color={lm ? "#7c3aed" : "#4c1d95"} />
-            </div>
-          )}
-          <button
-            onClick={() => fileRef.current?.click()}
-            disabled={uploading}
-            style={{
-              position: "absolute",
-              bottom: -6,
-              right: -6,
-              background: "#0e7490",
-              border: "2px solid #22d3ee",
-              width: 28,
-              height: 28,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: "pointer",
-            }}
+        <span className="sc-flame" style={{ fontSize: 40 }}>
+          🔥
+        </span>
+        <div>
+          <h1
+            className="sc-font"
+            style={{ fontSize: 24, color: "#facc15", margin: 0 }}
           >
-            {uploading ? (
-              <div
-                style={{
-                  width: 10,
-                  height: 10,
-                  border: "2px solid #fff",
-                  borderTopColor: "transparent",
-                  animation: "spin 1s linear infinite",
-                }}
-              />
-            ) : (
-              <Camera size={13} color="#fff" />
-            )}
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            onChange={handleAvatarUpload}
-            style={{ display: "none" }}
-            disabled={uploading}
-          />
-        </div>
-
-        {editing ? (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 8,
-              maxWidth: 300,
-              margin: "0 auto",
-            }}
+            {streakDays} DAY STREAK
+          </h1>
+          <p
+            className="sc-font"
+            style={{ fontSize: 8, color: "#4c1d95", marginTop: 5 }}
           >
-            <input
-              className="p-input"
-              value={eName}
-              onChange={(e) => setEName(e.target.value)}
-              placeholder="USERNAME *"
-            />
-            <input
-              className="p-input"
-              type="number"
-              value={eAge}
-              onChange={(e) => setEAge(e.target.value)}
-              placeholder="AGE"
-            />
-            <input
-              className="p-input"
-              value={eSchool}
-              onChange={(e) => setESchool(e.target.value)}
-              placeholder="SCHOOL"
-            />
-            <textarea
-              className="p-textarea"
-              value={eBio}
-              onChange={(e) => setEBio(e.target.value)}
-              placeholder="BIO..."
-              rows={3}
-            />
-          </div>
-        ) : (
-          <>
-            <div
-              className="pf"
-              style={{
-                fontSize: 13,
-                color: lm ? "#7c3aed" : "#c084fc",
-                marginBottom: 5,
-              }}
-            >
-              {username || "—"}
-            </div>
-            <div
-              className="pf"
-              style={{ fontSize: 7, color: lm ? "#9ca3af" : "#3b1d6a" }}
-            >
-              {email}
-            </div>
-            {school && (
-              <div
-                className="pf"
-                style={{
-                  fontSize: 7,
-                  color: lm ? "#9ca3af" : "#2d1060",
-                  marginTop: 4,
-                }}
-              >
-                🏫 {school}
-              </div>
-            )}
-            {bio && (
-              <div
-                className="pf"
-                style={{
-                  fontSize: 7,
-                  color: lm ? "#9ca3af" : "#4c1d95",
-                  marginTop: 8,
-                  maxWidth: 280,
-                  margin: "8px auto 0",
-                  lineHeight: 1.8,
-                }}
-              >
-                {bio}
-              </div>
-            )}
-          </>
-        )}
+            KEEP PLAYING TO UNLOCK REWARDS
+          </p>
+        </div>
       </div>
 
-      {/* Stats */}
+      {/* MAIN CONTENT GRID */}
       <div
-        className="fade-up"
         style={{
           display: "grid",
-          gridTemplateColumns: "1fr 1fr 1fr",
-          gap: 10,
-          marginBottom: 14,
-          animationDelay: ".05s",
+          gridTemplateColumns: "repeat(auto-fit, minmax(350px, 1fr))",
+          gap: "20px",
+          alignItems: "start",
         }}
       >
-        <div className="stat-card" onClick={() => setShowFriends(true)}>
-          <div style={{ position: "relative", marginBottom: 8 }}>
-            <Users size={20} color="#22d3ee" />
-            {friends.length > 0 && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: -4,
-                  right: -8,
-                  width: 14,
-                  height: 14,
-                  background: "#22d3ee",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontFamily: "'Press Start 2P',cursive",
-                  fontSize: 7,
-                  color: "#000",
-                }}
-              >
-                {friends.length}
-              </div>
-            )}
-          </div>
+        {/* LEFT COLUMN: CALENDAR */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
           <div
-            className="pf"
-            style={{ fontSize: 16, color: "#22d3ee", marginBottom: 4 }}
-          >
-            {friends.length}
-          </div>
-          <div className="pf" style={{ fontSize: 6, color: "#0891b2" }}>
-            FRIENDS
-          </div>
-        </div>
-        <div className="stat-card" onClick={() => setShowRequests(true)}>
-          <div style={{ position: "relative", marginBottom: 8 }}>
-            <Clock size={20} color="#fbbf24" />
-            {friendRequests.length > 0 && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: -4,
-                  right: -8,
-                  width: 14,
-                  height: 14,
-                  background: "#ef4444",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontFamily: "'Press Start 2P',cursive",
-                  fontSize: 7,
-                  color: "#fff",
-                }}
-              >
-                {friendRequests.length}
-              </div>
-            )}
-          </div>
-          <div
-            className="pf"
-            style={{ fontSize: 16, color: "#fbbf24", marginBottom: 4 }}
-          >
-            {friendRequests.length}
-          </div>
-          <div className="pf" style={{ fontSize: 6, color: "#92400e" }}>
-            REQUESTS
-          </div>
-        </div>
-        <div className="stat-card" onClick={() => setShowAddFriend(true)}>
-          <UserPlus size={20} color="#4ade80" style={{ marginBottom: 8 }} />
-          <div
-            className="pf"
-            style={{ fontSize: 16, color: "#4ade80", marginBottom: 4 }}
-          >
-            +
-          </div>
-          <div className="pf" style={{ fontSize: 6, color: "#166534" }}>
-            ADD
-          </div>
-        </div>
-      </div>
-
-      {/* Info panel */}
-      {!editing && (
-        <div
-          className="fade-up"
-          style={{
-            background: lm ? "#ffffff" : "rgba(8,3,24,.7)",
-            border: `2px solid ${lm ? "#e2e8f0" : "#1a0a35"}`,
-            padding: "16px",
-            boxShadow: lm ? "3px 3px 0 #e2e8f0" : "3px 3px 0 #0a0018",
-            animationDelay: ".1s",
-          }}
-        >
-          <div
-            className="pf"
             style={{
-              fontSize: 7,
-              color: lm ? "#9ca3af" : "#2d1060",
-              marginBottom: 12,
+              padding: "15px",
+              background: "rgba(8,3,24,.6)",
+              border: "2px solid #1a0a35",
             }}
           >
-            PROFILE INFO
+            <div
+              className="sc-font"
+              style={{ fontSize: 10, color: "#7c3aed", marginBottom: 15 }}
+            >
+              ◆ 30-DAY PROGRESS
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(7, 1fr)",
+                gap: "8px",
+              }}
+            >
+              {Array.from({ length: TOTAL_DAYS }, (_, i) => {
+                const day = i + 1;
+                const done = day <= streakDays;
+                const isToday = day === streakDays;
+                const milestone = MILESTONES.find((m) => m.day === day);
+                const claimed = milestone && claimedDays.includes(day);
+
+                return (
+                  <div
+                    key={day}
+                    className={`sc-day ${done ? "done" : "future"} ${isToday ? "today" : ""} ${milestone ? "milestone" : ""}`}
+                  >
+                    <span
+                      className="sc-font"
+                      style={{
+                        fontSize: 10,
+                        color: done ? "#86efac" : "#2d1060",
+                      }}
+                    >
+                      {day}
+                    </span>
+                    {milestone && (
+                      <span style={{ fontSize: 14 }}>
+                        {claimed ? "✓" : milestone.reward.emoji}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+
+          {/* STATS ROW */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(4, 1fr)",
+              gap: "10px",
+              padding: "15px",
+              background: "rgba(8,3,24,.8)",
+              border: "2px solid #1a0a35",
+            }}
+          >
             {[
-              { l: "USERNAME", v: username },
-              { l: "EMAIL", v: email },
-              ...(age ? [{ l: "AGE", v: age }] : []),
-              ...(school ? [{ l: "SCHOOL", v: school }] : []),
-            ].map(({ l, v }) => (
-              <div key={l} className="info-row">
+              {
+                icon: <Flame size={20} color="#f97316" />,
+                val: streakDays,
+                label: "STREAK",
+              },
+              {
+                icon: <Trophy size={20} color="#facc15" />,
+                val: claimedDays.length,
+                label: "TOTAL",
+              },
+              {
+                icon: <Star size={20} color="#a855f7" />,
+                val: 30 - streakDays,
+                label: "LEFT",
+              },
+              {
+                icon: <Zap size={20} color="#22d3ee" />,
+                val: "30",
+                label: "GOAL",
+              },
+            ].map((s, i) => (
+              <div key={i} style={{ textAlign: "center" }}>
+                {s.icon}
                 <div
-                  className="pf"
-                  style={{
-                    fontSize: 6,
-                    color: lm ? "#9ca3af" : "#3b1d6a",
-                    marginBottom: 4,
-                  }}
+                  className="sc-font"
+                  style={{ fontSize: 14, color: "#facc15", margin: "5px 0" }}
                 >
-                  {l}
+                  {s.val}
                 </div>
                 <div
-                  className="pf"
-                  style={{
-                    fontSize: 9,
-                    color: lm ? "#7c3aed" : "#a78bfa",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
+                  className="sc-font"
+                  style={{ fontSize: 6, color: "#3b1d6a" }}
                 >
-                  {v || "—"}
+                  {s.label}
                 </div>
               </div>
             ))}
           </div>
         </div>
-      )}
 
-      {/* Friends modal */}
-      {showFriends && (
-        <div className="modal-overlay" onClick={() => setShowFriends(false)}>
+        {/* RIGHT COLUMN: AVATAR & REWARDS */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+          {/* AVATAR DISPLAY */}
           <div
-            className="modal-box pop-in"
-            onClick={(e) => e.stopPropagation()}
+            style={{
+              padding: "20px",
+              background: "rgba(8,3,24,.85)",
+              border: "2px solid #2d1060",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+            }}
           >
+            <AvatarImage cfg={avatarCfg} size={200} />
             <div
-              className="corner-dot"
-              style={{ top: 0, left: 0, background: "#22d3ee" }}
-            />
-            <div
-              className="corner-dot"
-              style={{ top: 0, right: 0, background: "#a855f7" }}
-            />
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                marginBottom: 14,
-              }}
+              className="sc-font"
+              style={{ fontSize: 8, color: "#facc15", marginTop: 10 }}
             >
-              <Users size={12} color="#22d3ee" />
-              <span className="pf" style={{ fontSize: 9, color: "#22d3ee" }}>
-                FRIENDS ({friends.length})
-              </span>
+              YOUR CHARACTER
             </div>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 6,
-                marginBottom: 14,
-              }}
-            >
-              {friends.length === 0 ? (
-                <div style={{ textAlign: "center", padding: "24px 0" }}>
-                  <div
-                    className="pf"
-                    style={{ fontSize: 8, color: lm ? "#9ca3af" : "#1a0a35" }}
-                  >
-                    NO FRIENDS YET
-                  </div>
-                </div>
-              ) : (
-                friends.map((f: any) => (
-                  <div key={f.id} className="friend-row">
-                    {f.friend?.avatar_url ? (
-                      <img
-                        src={f.friend.avatar_url}
-                        alt=""
-                        style={{
-                          width: 34,
-                          height: 34,
-                          border: "2px solid #3b1d6a",
-                          objectFit: "cover",
-                        }}
-                      />
-                    ) : (
-                      <div
-                        style={{
-                          width: 34,
-                          height: 34,
-                          background: lm ? "#ede9fe" : "rgba(45,16,96,.5)",
-                          border: `2px solid ${lm ? "#c4b5fd" : "#2d1060"}`,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        <Users size={14} color="#4c1d95" />
-                      </div>
-                    )}
-                    <div style={{ flex: 1 }}>
-                      <div
-                        className="pf"
-                        style={{ fontSize: 8, color: "#c084fc" }}
-                      >
-                        {f.friend?.username}
-                      </div>
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 4,
-                          marginTop: 3,
-                        }}
-                      >
-                        {f.friend?.status === "online" ? (
-                          <Wifi size={8} color="#22c55e" />
-                        ) : (
-                          <WifiOff size={8} color="#374151" />
-                        )}
-                        <span
-                          className="pf"
-                          style={{
-                            fontSize: 6,
-                            color:
-                              f.friend?.status === "online"
-                                ? "#22c55e"
-                                : "#374151",
-                          }}
-                        >
-                          {(f.friend?.status || "offline").toUpperCase()}
-                        </span>
-                      </div>
-                    </div>
-                    <button
-                      className="p-btn red sm"
-                      onClick={() => removeFriend(f.friend?.id)}
-                    >
-                      <UserMinus size={9} />
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-            <button
-              className="p-btn purple"
-              style={{ width: "100%" }}
-              onClick={() => setShowFriends(false)}
-            >
-              ✕ CLOSE
-            </button>
           </div>
-        </div>
-      )}
 
-      {/* Requests modal */}
-      {showRequests && (
-        <div className="modal-overlay" onClick={() => setShowRequests(false)}>
+          {/* MILESTONES LIST */}
           <div
-            className="modal-box pop-in"
-            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "rgba(8,3,24,.6)",
+              border: "2px solid #1a0a35",
+            }}
           >
             <div
-              className="corner-dot"
-              style={{ top: 0, left: 0, background: "#fbbf24" }}
-            />
-            <div
-              className="corner-dot"
-              style={{ top: 0, right: 0, background: "#f472b6" }}
-            />
-            <div
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                marginBottom: 14,
+                padding: "10px",
+                background: "rgba(8,3,24,.4)",
+                borderBottom: "2px solid #1a0a35",
               }}
             >
-              <Clock size={12} color="#fbbf24" />
-              <span className="pf" style={{ fontSize: 9, color: "#fbbf24" }}>
-                REQUESTS ({friendRequests.length})
+              <span
+                className="sc-font"
+                style={{ fontSize: 10, color: "#7c3aed" }}
+              >
+                ◆ REWARDS
               </span>
             </div>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 8,
-                marginBottom: 14,
-              }}
-            >
-              {friendRequests.length === 0 ? (
-                <div style={{ textAlign: "center", padding: "24px 0" }}>
-                  <div
-                    className="pf"
-                    style={{ fontSize: 8, color: lm ? "#9ca3af" : "#1a0a35" }}
-                  >
-                    NO PENDING REQUESTS
-                  </div>
-                </div>
-              ) : (
-                friendRequests.map((req) => (
-                  <div
-                    key={req.id}
-                    style={{
-                      border: "1px solid #2d1060",
-                      background: "rgba(45,16,96,.15)",
-                      padding: "12px",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 10,
-                        marginBottom: 10,
-                      }}
-                    >
-                      {req.sender?.avatar_url ? (
-                        <img
-                          src={req.sender.avatar_url}
-                          alt=""
-                          style={{
-                            width: 34,
-                            height: 34,
-                            border: "2px solid #3b1d6a",
-                            objectFit: "cover",
-                          }}
-                        />
-                      ) : (
-                        <div
-                          style={{
-                            width: 34,
-                            height: 34,
-                            background: "rgba(45,16,96,.5)",
-                            border: "2px solid #2d1060",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
-                        >
-                          <Users size={14} color="#4c1d95" />
-                        </div>
-                      )}
-                      <div>
-                        <div
-                          className="pf"
-                          style={{ fontSize: 8, color: "#c084fc" }}
-                        >
-                          {req.sender?.username}
-                        </div>
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button
-                        className="p-btn green"
-                        style={{ flex: 1 }}
-                        onClick={() => handleAcceptRequest(req.id)}
-                      >
-                        <Check size={10} />
-                        ACCEPT
-                      </button>
-                      <button
-                        className="p-btn red"
-                        style={{ flex: 1 }}
-                        onClick={() => handleRejectRequest(req.id)}
-                      >
-                        <X size={10} />
-                        REJECT
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-            <button
-              className="p-btn purple"
-              style={{ width: "100%" }}
-              onClick={() => setShowRequests(false)}
-            >
-              ✕ CLOSE
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Add Friend modal */}
-      {showAddFriend && (
-        <div
-          className="modal-overlay"
-          onClick={() => {
-            setShowAddFriend(false);
-            setFriendSearch("");
-            setFriendResults([]);
-          }}
-        >
-          <div
-            className="modal-box pop-in"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              className="corner-dot"
-              style={{ top: 0, left: 0, background: "#4ade80" }}
-            />
-            <div
-              className="corner-dot"
-              style={{ top: 0, right: 0, background: "#22d3ee" }}
-            />
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                marginBottom: 16,
-              }}
-            >
-              <UserPlus size={12} color="#4ade80" />
-              <span className="pf" style={{ fontSize: 9, color: "#4ade80" }}>
-                ADD FRIEND
-              </span>
-            </div>
-            <div className="search-row">
-              <Search size={12} color="#3b1d6a" />
-              <input
-                value={friendSearch}
-                onChange={(e) => searchFriends(e.target.value)}
-                placeholder="SEARCH BY USERNAME..."
-              />
-              {friendSearch && (
-                <button
-                  onClick={() => {
-                    setFriendSearch("");
-                    setFriendResults([]);
-                  }}
+            {MILESTONES.map((m) => {
+              const reached = streakDays >= m.day;
+              const claimed = claimedDays.includes(m.day);
+              return (
+                <div
+                  key={m.day}
                   style={{
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    color: "#4c1d95",
-                    padding: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    padding: "12px",
+                    borderBottom: "1px solid #1a0a35",
+                    gap: "12px",
+                    background: claimed ? "rgba(20,83,45,.1)" : "transparent",
                   }}
                 >
-                  <X size={11} />
-                </button>
-              )}
-            </div>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 6,
-                maxHeight: 260,
-                overflowY: "auto",
-                marginBottom: 14,
-              }}
-            >
-              {friendResults.length === 0 && friendSearch.length >= 2 ? (
-                <div style={{ textAlign: "center", padding: "24px 0" }}>
-                  <div className="pf" style={{ fontSize: 8, color: "#1a0a35" }}>
-                    NO USERS FOUND
+                  <div
+                    style={{
+                      width: 40,
+                      height: 40,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      border: "2px solid",
+                      borderColor: claimed
+                        ? "#22c55e"
+                        : reached
+                          ? "#f97316"
+                          : "#1a0a35",
+                      fontSize: 20,
+                    }}
+                  >
+                    {claimed ? "✓" : m.reward.emoji}
                   </div>
-                </div>
-              ) : friendSearch.length < 2 ? (
-                <div style={{ textAlign: "center", padding: "16px 0" }}>
-                  <div className="pf" style={{ fontSize: 7, color: "#1a0a35" }}>
-                    TYPE 2+ CHARS TO SEARCH
-                  </div>
-                </div>
-              ) : (
-                friendResults.map((user) => (
-                  <div key={user.id} className="friend-row">
-                    {user.avatar_url ? (
-                      <img
-                        src={user.avatar_url}
-                        alt=""
-                        style={{
-                          width: 32,
-                          height: 32,
-                          border: "2px solid #3b1d6a",
-                          objectFit: "cover",
-                        }}
-                      />
-                    ) : (
-                      <div
-                        style={{
-                          width: 32,
-                          height: 32,
-                          background: lm ? "#ede9fe" : "rgba(45,16,96,.5)",
-                          border: `2px solid ${lm ? "#c4b5fd" : "#2d1060"}`,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        <Users size={12} color="#4c1d95" />
-                      </div>
-                    )}
-                    <span
-                      className="pf"
-                      style={{ flex: 1, fontSize: 8, color: "#c084fc" }}
+                  <div style={{ flex: 1 }}>
+                    <div
+                      className="sc-font"
+                      style={{
+                        fontSize: 10,
+                        color: reached ? "#f97316" : "#4c1d95",
+                      }}
                     >
-                      {user.username}
-                    </span>
+                      DAY {m.day}
+                    </div>
+                    <div
+                      className="sc-font"
+                      style={{ fontSize: 7, color: "#2d1060" }}
+                    >
+                      {m.reward.label}
+                    </div>
+                  </div>
+                  {reached && !claimed ? (
                     <button
-                      className="p-btn green sm"
-                      onClick={() => sendFriendRequest(user.id)}
-                      disabled={sendingInvite === user.id}
+                      className="sc-claim-btn sc-shine"
+                      onClick={() => handleClaim(m)}
                     >
-                      {sendingInvite === user.id ? (
-                        <div
-                          style={{
-                            width: 8,
-                            height: 8,
-                            border: "2px solid #fff",
-                            borderTopColor: "transparent",
-                            animation: "spin 1s linear infinite",
-                          }}
-                        />
-                      ) : (
-                        <>
-                          <UserPlus size={9} />
-                          ADD
-                        </>
-                      )}
+                      CLAIM
                     </button>
-                  </div>
-                ))
-              )}
+                  ) : !reached ? (
+                    <Lock size={16} color="#1a0a35" />
+                  ) : (
+                    <Check size={16} color="#22c55e" />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* BADGES SECTION */}
+          <div
+            style={{
+              background: "rgba(8,3,24,.6)",
+              border: "2px solid #1a0a35",
+              padding: "10px",
+            }}
+          >
+            <div
+              className="sc-font"
+              style={{ fontSize: 8, color: "#7c3aed", marginBottom: 10 }}
+            >
+              ◆ ACHIEVEMENT BADGES
+            </div>
+            <div style={{ display: "flex", gap: "5px" }}>
+              {BADGES.map((b, i) => (
+                <div
+                  key={i}
+                  className={`sc-badge ${streakDays >= b.unlockAt ? "unlocked" : "locked"}`}
+                >
+                  <span style={{ fontSize: 20 }}>{b.emoji}</span>
+                  <span className="sc-font" style={{ fontSize: 6 }}>
+                    {b.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* REWARD MODAL */}
+      {rewardPopup && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.8)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 100,
+          }}
+          onClick={() => setRewardPopup(null)}
+        >
+          <div
+            className="sc-pop"
+            style={{
+              background: "#0f0820",
+              border: "4px solid #7c3aed",
+              padding: 40,
+              textAlign: "center",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              className="sc-bounce"
+              style={{ fontSize: 60, marginBottom: 20 }}
+            >
+              {rewardPopup.emoji}
+            </div>
+            <div className="sc-font" style={{ fontSize: 18, color: "#facc15" }}>
+              CLAIMED!
+            </div>
+            <div className="sc-font" style={{ fontSize: 10, margin: "20px 0" }}>
+              {rewardPopup.label}
             </div>
             <button
-              className="p-btn purple"
-              style={{ width: "100%" }}
-              onClick={() => {
-                setShowAddFriend(false);
-                setFriendSearch("");
-                setFriendResults([]);
+              className="sc-font"
+              style={{
+                padding: "10px 20px",
+                background: "#7c3aed",
+                color: "#fff",
+                border: "none",
+                cursor: "pointer",
               }}
+              onClick={() => setRewardPopup(null)}
             >
-              ✕ CLOSE
+              AWESOME!
             </button>
           </div>
         </div>
