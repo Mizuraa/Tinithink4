@@ -7,8 +7,6 @@ import {
   acceptFriendRequest,
   rejectFriendRequest,
 } from "../../lib/supabase";
-import { createContext, useContext } from "react";
-const _ThemeCtx = createContext<boolean>(false);
 function useLightMode() {
   try {
     return localStorage.getItem("tt_light_mode") === "true";

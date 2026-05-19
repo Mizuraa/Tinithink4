@@ -913,8 +913,8 @@ export default function GameRoom() {
     double: 0,
   });
   const [difficulty, setDifficulty] = useState<Difficulty>("easy");
-  const [gameTitle, setGameTitle] = useState<string>("");
-  const [wrongAttempts, setWrongAttempts] = useState(0);
+  const [, setGameTitle] = useState<string>("");
+  const [, setWrongAttempts] = useState(0);
   const [questions, setQuestions] = useState<QuestionWithChoices[]>([]);
   const [index, setIndex] = useState(0);
   const [lives, setLives] = useState(3);
@@ -1342,7 +1342,6 @@ export default function GameRoom() {
     sounds.click();
     const chosen = current.choices.find((c) => c.id === choiceId);
     const isCorrect = chosen?.is_correct ?? false;
-    const cfg = DIFF_CONFIG[difficulty];
 
     totalAnsweredRef.current += 1;
 
